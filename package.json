@@ -4,7 +4,8 @@
   "description": "MCP Server for Guesty Property Management - The first Guesty MCP server",
   "main": "src/server.js",
   "bin": {
-    "guesty-mcp-server": "src/server.js"
+    "guesty-mcp-server": "src/server.js",
+    "guesty-cli": "src/cli.js"
   },
   "type": "module",
   "scripts": {
