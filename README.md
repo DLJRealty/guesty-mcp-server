@@ -19,6 +19,8 @@ The first MCP (Model Context Protocol) server for [Guesty](https://guesty.com) p
 | `respond_to_review` | Post responses to guest reviews |
 | `get_owner_statements` | Owner revenue statements and reports |
 | `get_expenses` | Track operational expenses |
+| `get_channels` | List connected booking channels per property |
+| `get_tasks` | Fetch cleaning and maintenance tasks |
 
 ## Quick Start
 

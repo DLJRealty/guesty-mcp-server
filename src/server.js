@@ -543,6 +543,72 @@ server.tool(
   }
 );
 
+// Tool 14: Get Channels (Connected OTAs)
+server.tool(
+  "get_channels",
+  "List connected booking channels (Airbnb, VRBO, Booking.com, etc.) and their status.",
+  {
+    listingId: z.string().optional().describe("Filter by listing ID to see which channels a property is on"),
+  },
+  async (params) => {
+    if (params.listingId) {
+      const listing = await guestyGet(`/listings/${params.listingId}`);
+      const channels = (listing.integrations || []).map((i) => ({
+        channel: i.platform,
+        externalId: i.externalId,
+        externalUrl: i.externalUrl,
+        status: i.status,
+      }));
+      return {
+        content: [{ type: "text", text: JSON.stringify({ listing: listing.title, channels }, null, 2) }],
+      };
+    }
+    // Get all listings with their channel info
+    const data = await guestyGet("/listings", { limit: 50 });
+    const listings = (data.results || []).map((l) => ({
+      id: l._id,
+      title: l.title,
+      nickname: l.nickname,
+      channels: (l.integrations || []).map((i) => i.platform).join(", ") || "none",
+      active: l.active,
+    }));
+    return {
+      content: [{ type: "text", text: JSON.stringify({ total: data.count, listings }, null, 2) }],
+    };
+  }
+);
+
+// Tool 15: Get Tasks (Cleaning/Maintenance)
+server.tool(
+  "get_tasks",
+  "Fetch cleaning and maintenance tasks from Guesty.",
+  {
+    listingId: z.string().optional().describe("Filter by listing ID"),
+    status: z.string().optional().describe("Filter by status: pending, confirmed, completed, canceled"),
+    limit: z.number().optional().default(10).describe("Max results"),
+  },
+  async (params) => {
+    const queryParams = { limit: params.limit };
+    if (params.listingId) queryParams.listingId = params.listingId;
+    if (params.status) queryParams.status = params.status;
+
+    const data = await guestyGet("/tasks-open-api/tasks", queryParams);
+    const tasks = (data.results || []).map((t) => ({
+      id: t._id,
+      type: t.type,
+      status: t.status,
+      listing: t.listing?.title || "Unknown",
+      assignee: t.assignee?.fullName || "Unassigned",
+      scheduledFor: t.scheduledFor?.slice(0, 10),
+      description: t.description?.slice(0, 200),
+    }));
+
+    return {
+      content: [{ type: "text", text: JSON.stringify({ total: data.count, tasks }, null, 2) }],
+    };
+  }
+);
+
 // Start server
 const transport = new StdioServerTransport();
 await server.connect(transport);
