@@ -467,6 +467,82 @@ server.tool(
   }
 );
 
+// Tool 11: Respond to Review
+server.tool(
+  "respond_to_review",
+  "Post a response to a guest review.",
+  {
+    reviewId: z.string().describe("The review ID to respond to"),
+    response: z.string().describe("Your response text"),
+  },
+  async (params) => {
+    const data = await guestyPut(`/reviews/${params.reviewId}`, {
+      response: params.response,
+    });
+    return { content: [{ type: "text", text: `Review response posted successfully for review ${params.reviewId}` }] };
+  }
+);
+
+// Tool 12: Get Owner Statements
+server.tool(
+  "get_owner_statements",
+  "Fetch owner revenue statements/reports for properties.",
+  {
+    listingId: z.string().optional().describe("Filter by listing ID"),
+    from: z.string().optional().describe("Start date (YYYY-MM-DD)"),
+    to: z.string().optional().describe("End date (YYYY-MM-DD)"),
+    limit: z.number().optional().default(10).describe("Max results"),
+  },
+  async (params) => {
+    const queryParams = { limit: params.limit };
+    if (params.listingId) queryParams.listingId = params.listingId;
+    if (params.from) queryParams["from"] = params.from;
+    if (params.to) queryParams["to"] = params.to;
+
+    const data = await guestyGet("/owner-statements", queryParams);
+    return {
+      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+    };
+  }
+);
+
+// Tool 13: Get Expenses
+server.tool(
+  "get_expenses",
+  "Fetch operational expenses tracked in Guesty.",
+  {
+    listingId: z.string().optional().describe("Filter by listing ID"),
+    from: z.string().optional().describe("Start date (YYYY-MM-DD)"),
+    to: z.string().optional().describe("End date (YYYY-MM-DD)"),
+    limit: z.number().optional().default(25).describe("Max results"),
+  },
+  async (params) => {
+    const queryParams = { limit: params.limit };
+    if (params.listingId) queryParams.listingId = params.listingId;
+    if (params.from) queryParams["from"] = params.from;
+    if (params.to) queryParams["to"] = params.to;
+
+    const data = await guestyGet("/expenses", queryParams);
+    const expenses = (data.results || []).map((e) => ({
+      id: e._id,
+      title: e.title,
+      amount: e.amount,
+      currency: e.currency,
+      category: e.category,
+      listing: e.listing?.title || "Unknown",
+      date: e.date?.slice(0, 10),
+      vendor: e.vendor,
+    }));
+
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({ total: data.count, expenses }, null, 2),
+      }],
+    };
+  }
+);
+
 // Start server
 const transport = new StdioServerTransport();
 await server.connect(transport);

@@ -12,6 +12,13 @@ The first MCP (Model Context Protocol) server for [Guesty](https://guesty.com) p
 | `send_guest_message` | Send messages to guests in conversations |
 | `get_financials` | Revenue, payouts, and commission data |
 | `update_pricing` | Update base price or date-specific pricing |
+| `create_reservation` | Create direct bookings (website → Guesty) |
+| `get_reviews` | Fetch guest reviews from all channels |
+| `get_calendar` | Check availability and pricing by date |
+| `update_calendar` | Block/unblock dates, set minimum nights |
+| `respond_to_review` | Post responses to guest reviews |
+| `get_owner_statements` | Owner revenue statements and reports |
+| `get_expenses` | Track operational expenses |
 
 ## Quick Start
 
