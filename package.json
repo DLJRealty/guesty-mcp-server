@@ -3,13 +3,20 @@
   "version": "0.1.0",
   "description": "MCP Server for Guesty Property Management - The first Guesty MCP server",
   "main": "src/server.js",
+  "bin": {
+    "guesty-mcp-server": "src/server.js"
+  },
   "type": "module",
   "scripts": {
     "start": "node src/server.js"
   },
+  "keywords": ["mcp", "guesty", "property-management", "short-term-rental", "airbnb", "ai-agent"],
   "author": "DLJ Properties",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.28.0"
+    "@modelcontextprotocol/sdk": "latest"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
