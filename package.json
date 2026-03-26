@@ -8,7 +8,8 @@
   },
   "type": "module",
   "scripts": {
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "test": "node tests/test-tools.js"
   },
   "keywords": [
     "mcp",
