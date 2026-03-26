@@ -330,6 +330,143 @@ server.tool(
   }
 );
 
+// ============ V2 TOOLS ============
+
+// Tool 7: Create Reservation (Direct Booking)
+server.tool(
+  "create_reservation",
+  "Create a new reservation/booking in Guesty. Use for direct bookings from your website.",
+  {
+    listingId: z.string().describe("The listing ID to book"),
+    checkIn: z.string().describe("Check-in date (YYYY-MM-DD)"),
+    checkOut: z.string().describe("Check-out date (YYYY-MM-DD)"),
+    guestName: z.string().describe("Guest full name"),
+    guestEmail: z.string().optional().describe("Guest email address"),
+    guestPhone: z.string().optional().describe("Guest phone number"),
+    numberOfGuests: z.number().optional().default(1).describe("Number of guests"),
+    source: z.string().optional().default("direct").describe("Booking source (direct, website, etc.)"),
+  },
+  async (params) => {
+    const body = {
+      listingId: params.listingId,
+      checkInDateLocalized: params.checkIn,
+      checkOutDateLocalized: params.checkOut,
+      status: "confirmed",
+      guest: {
+        fullName: params.guestName,
+        email: params.guestEmail,
+        phone: params.guestPhone,
+      },
+      guestsCount: params.numberOfGuests,
+      source: params.source,
+    };
+
+    const data = await guestyPost("/reservations", body);
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          success: true,
+          reservationId: data._id,
+          confirmationCode: data.confirmationCode,
+          guest: params.guestName,
+          listing: params.listingId,
+          dates: `${params.checkIn} → ${params.checkOut}`,
+        }, null, 2),
+      }],
+    };
+  }
+);
+
+// Tool 8: Get Reviews
+server.tool(
+  "get_reviews",
+  "Fetch guest reviews for your properties from all channels.",
+  {
+    listingId: z.string().optional().describe("Filter by listing ID"),
+    limit: z.number().optional().default(10).describe("Max results"),
+  },
+  async (params) => {
+    const queryParams = { limit: params.limit };
+    if (params.listingId) queryParams.listingId = params.listingId;
+
+    const data = await guestyGet("/reviews", queryParams);
+    const reviews = (data.results || []).map((r) => ({
+      id: r._id,
+      listing: r.listing?.title || "Unknown",
+      guestName: r.guest?.fullName || "Unknown",
+      rating: r.rating,
+      comment: r.comment?.slice(0, 300),
+      response: r.response?.slice(0, 200),
+      channel: r.source,
+      date: r.createdAt?.slice(0, 10),
+    }));
+
+    return {
+      content: [{ type: "text", text: JSON.stringify({ total: data.count, reviews }, null, 2) }],
+    };
+  }
+);
+
+// Tool 9: Get Calendar
+server.tool(
+  "get_calendar",
+  "Fetch calendar availability and pricing for a listing over a date range.",
+  {
+    listingId: z.string().describe("The listing ID"),
+    from: z.string().describe("Start date (YYYY-MM-DD)"),
+    to: z.string().describe("End date (YYYY-MM-DD)"),
+  },
+  async (params) => {
+    const data = await guestyGet(`/listings/${params.listingId}/calendar`, {
+      from: params.from,
+      to: params.to,
+    });
+
+    const days = (data.days || data || []).map ? (data.days || []).map((d) => ({
+      date: d.date,
+      available: d.status === "available",
+      price: d.price,
+      minNights: d.minNights,
+      blockReason: d.blockReason,
+    })) : [];
+
+    return {
+      content: [{ type: "text", text: JSON.stringify({ listing: params.listingId, days }, null, 2) }],
+    };
+  }
+);
+
+// Tool 10: Update Calendar
+server.tool(
+  "update_calendar",
+  "Block or unblock dates, set minimum nights, or update availability for a listing.",
+  {
+    listingId: z.string().describe("The listing ID"),
+    dateFrom: z.string().describe("Start date (YYYY-MM-DD)"),
+    dateTo: z.string().describe("End date (YYYY-MM-DD)"),
+    status: z.string().optional().describe("Set to 'available' or 'unavailable'"),
+    minNights: z.number().optional().describe("Minimum night stay"),
+    blockReason: z.string().optional().describe("Reason for blocking: owner, maintenance, other"),
+  },
+  async (params) => {
+    const body = {};
+    if (params.status) body.status = params.status;
+    if (params.minNights) body.minNights = params.minNights;
+    if (params.blockReason) body.note = params.blockReason;
+
+    const data = await guestyPut(`/listings/${params.listingId}/calendar`, {
+      dateFrom: params.dateFrom,
+      dateTo: params.dateTo,
+      ...body,
+    });
+
+    return {
+      content: [{ type: "text", text: `Calendar updated for ${params.listingId}: ${params.dateFrom} to ${params.dateTo}` }],
+    };
+  }
+);
+
 // Start server
 const transport = new StdioServerTransport();
 await server.connect(transport);
