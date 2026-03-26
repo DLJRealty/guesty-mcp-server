@@ -8,6 +8,11 @@ const GUESTY_CLIENT_ID = process.env.GUESTY_CLIENT_ID || "0oatgbjmdqJuH8HJy5d7";
 const GUESTY_CLIENT_SECRET = process.env.GUESTY_CLIENT_SECRET || "GtwEOuHveX4TybMKqojSR-ux6hoE4ge0z4jX00-vIcU3OoCvKWN97gPJdacdJIdO";
 const GUESTY_API_BASE = "https://open-api.guesty.com/v1";
 
+if (!GUESTY_CLIENT_ID || !GUESTY_CLIENT_SECRET) {
+  console.error("Error: GUESTY_CLIENT_ID and GUESTY_CLIENT_SECRET environment variables are required.");
+  process.exit(1);
+}
+
 let cachedToken = null;
 let tokenExpiry = 0;
 
