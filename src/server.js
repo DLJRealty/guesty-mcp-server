@@ -32,22 +32,28 @@ async function getToken() {
   return cachedToken;
 }
 
-async function guestyGet(path, params = {}) {
+async function guestyGet(path, params = {}, retries = 2) {
   const token = await getToken();
   const url = new URL(`${GUESTY_API_BASE}${path}`);
   Object.entries(params).forEach(([k, v]) => {
-    if (v !== undefined && v !== null) url.searchParams.set(k, v);
+    if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
   });
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
   });
 
+  if (res.status === 429 && retries > 0) {
+    const wait = Math.min(parseInt(res.headers.get("retry-after") || "5", 10), 30) * 1000;
+    await new Promise((r) => setTimeout(r, wait));
+    return guestyGet(path, params, retries - 1);
+  }
+
   if (!res.ok) throw new Error(`Guesty API error ${res.status}: ${await res.text()}`);
   return res.json();
 }
 
-async function guestyPost(path, body) {
+async function guestyPost(path, body, retries = 2) {
   const token = await getToken();
   const res = await fetch(`${GUESTY_API_BASE}${path}`, {
     method: "POST",
@@ -59,11 +65,17 @@ async function guestyPost(path, body) {
     body: JSON.stringify(body),
   });
 
+  if (res.status === 429 && retries > 0) {
+    const wait = Math.min(parseInt(res.headers.get("retry-after") || "5", 10), 30) * 1000;
+    await new Promise((r) => setTimeout(r, wait));
+    return guestyPost(path, body, retries - 1);
+  }
+
   if (!res.ok) throw new Error(`Guesty API error ${res.status}: ${await res.text()}`);
   return res.json();
 }
 
-async function guestyPut(path, body) {
+async function guestyPut(path, body, retries = 2) {
   const token = await getToken();
   const res = await fetch(`${GUESTY_API_BASE}${path}`, {
     method: "PUT",
@@ -74,6 +86,12 @@ async function guestyPut(path, body) {
     },
     body: JSON.stringify(body),
   });
+
+  if (res.status === 429 && retries > 0) {
+    const wait = Math.min(parseInt(res.headers.get("retry-after") || "5", 10), 30) * 1000;
+    await new Promise((r) => setTimeout(r, wait));
+    return guestyPut(path, body, retries - 1);
+  }
 
   if (!res.ok) throw new Error(`Guesty API error ${res.status}: ${await res.text()}`);
   return res.json();
