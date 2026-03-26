@@ -1,0 +1,15 @@
+{
+  "name": "guesty-mcp-server",
+  "version": "0.1.0",
+  "description": "MCP Server for Guesty Property Management - The first Guesty MCP server",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "author": "DLJ Properties",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.28.0"
+  }
+}
