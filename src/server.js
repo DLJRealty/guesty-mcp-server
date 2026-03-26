@@ -4,8 +4,8 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 
 // Guesty API Configuration
-const GUESTY_CLIENT_ID = process.env.GUESTY_CLIENT_ID || "0oatgbjmdqJuH8HJy5d7";
-const GUESTY_CLIENT_SECRET = process.env.GUESTY_CLIENT_SECRET || "GtwEOuHveX4TybMKqojSR-ux6hoE4ge0z4jX00-vIcU3OoCvKWN97gPJdacdJIdO";
+const GUESTY_CLIENT_ID = process.env.GUESTY_CLIENT_ID;
+const GUESTY_CLIENT_SECRET = process.env.GUESTY_CLIENT_SECRET;
 const GUESTY_API_BASE = "https://open-api.guesty.com/v1";
 
 if (!GUESTY_CLIENT_ID || !GUESTY_CLIENT_SECRET) {
