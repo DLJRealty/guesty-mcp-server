@@ -1,6 +1,6 @@
 {
   "name": "guesty-mcp-server",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "MCP Server for Guesty Property Management - The first Guesty MCP server",
   "main": "src/server.js",
   "bin": {
@@ -30,7 +30,7 @@
     "url": "https://github.com/DLJRealty/guesty-mcp-server.git"
   },
   "homepage": "https://github.com/DLJRealty/guesty-mcp-server",
-  "mcpName": "io.github.dljrealty/guesty",
+  "mcpName": "io.github.DLJRealty/guesty",
   "engines": {
     "node": ">=18.0.0"
   }
