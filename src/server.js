@@ -106,7 +106,7 @@ async function guestyPut(path, body, retries = 2) {
 // Create MCP Server
 const server = new McpServer({
   name: "guesty-mcp-server",
-  version: "0.1.0",
+  version: "0.3.0",
 });
 
 // Tool 1: Get Reservations
@@ -605,6 +605,448 @@ server.tool(
 
     return {
       content: [{ type: "text", text: JSON.stringify({ total: data.count, tasks }, null, 2) }],
+    };
+  }
+);
+
+// ============ V3 TOOLS ============
+
+// Tool 16: Get Photos
+server.tool(
+  "get_photos",
+  "Fetch photos for a specific listing including URLs, captions, and sort order.",
+  {
+    listingId: z.string().describe("The listing ID to get photos for"),
+  },
+  async (params) => {
+    const data = await guestyGet(`/listings/${params.listingId}`);
+    const photos = (data.pictures || []).map((p) => ({
+      url: p.original || p.thumbnail,
+      caption: p.caption || "",
+      sortOrder: p.sortOrder,
+    }));
+
+    return {
+      content: [{ type: "text", text: JSON.stringify({ listing: params.listingId, photoCount: photos.length, photos }, null, 2) }],
+    };
+  }
+);
+
+// Tool 17: Update Photos
+server.tool(
+  "update_photos",
+  "Replace or reorder photos for a listing. Provide the full array of photos in desired order.",
+  {
+    listingId: z.string().describe("The listing ID to update photos for"),
+    photos: z.array(z.object({
+      url: z.string().describe("Photo URL"),
+      caption: z.string().optional().describe("Photo caption"),
+    })).describe("Array of photo objects with url and optional caption"),
+  },
+  async (params) => {
+    const data = await guestyPut(`/listings/${params.listingId}`, {
+      pictures: params.photos,
+    });
+    return { content: [{ type: "text", text: `Photos updated for listing ${params.listingId}. ${params.photos.length} photos set.` }] };
+  }
+);
+
+// Tool 18: Get Calendar Blocks
+server.tool(
+  "get_calendar_blocks",
+  "Get blocked dates and their reasons for a listing over a date range.",
+  {
+    listingId: z.string().describe("The listing ID"),
+    from: z.string().describe("Start date (YYYY-MM-DD)"),
+    to: z.string().describe("End date (YYYY-MM-DD)"),
+  },
+  async (params) => {
+    const data = await guestyGet(`/listings/${params.listingId}/calendar`, {
+      from: params.from,
+      to: params.to,
+    });
+
+    const blockedDays = (data.days || [])
+      .filter((d) => d.status !== "available")
+      .map((d) => ({
+        date: d.date,
+        blockReason: d.blockReason || d.note || "unknown",
+        status: d.status,
+      }));
+
+    return {
+      content: [{ type: "text", text: JSON.stringify({ listing: params.listingId, blockedCount: blockedDays.length, blockedDays }, null, 2) }],
+    };
+  }
+);
+
+// Tool 19: Create Expense
+server.tool(
+  "create_expense",
+  "Create a new expense record for a listing in Guesty.",
+  {
+    listingId: z.string().describe("The listing ID the expense is for"),
+    title: z.string().describe("Expense title/description"),
+    amount: z.number().describe("Expense amount"),
+    currency: z.string().optional().default("USD").describe("Currency code (default USD)"),
+    category: z.string().optional().describe("Expense category (e.g., cleaning, maintenance, supplies)"),
+    vendor: z.string().optional().describe("Vendor/supplier name"),
+    date: z.string().optional().describe("Expense date (YYYY-MM-DD)"),
+  },
+  async (params) => {
+    const body = {
+      listingId: params.listingId,
+      title: params.title,
+      amount: params.amount,
+      currency: params.currency,
+    };
+    if (params.category) body.category = params.category;
+    if (params.vendor) body.vendor = params.vendor;
+    if (params.date) body.date = params.date;
+
+    const data = await guestyPost("/expenses", body);
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          success: true,
+          expenseId: data._id,
+          title: params.title,
+          amount: `${params.currency} ${params.amount}`,
+          listing: params.listingId,
+        }, null, 2),
+      }],
+    };
+  }
+);
+
+// Tool 20: Get Guests
+server.tool(
+  "get_guests",
+  "Fetch guest database/profiles. Search by name or email.",
+  {
+    limit: z.number().optional().default(10).describe("Max results (default 10)"),
+    skip: z.number().optional().describe("Offset for pagination"),
+    query: z.string().optional().describe("Search by guest name or email"),
+  },
+  async (params) => {
+    const queryParams = { limit: params.limit };
+    if (params.skip) queryParams.skip = params.skip;
+    if (params.query) queryParams.q = params.query;
+
+    const data = await guestyGet("/guests", queryParams);
+    const guests = (data.results || []).map((g) => ({
+      id: g._id,
+      fullName: g.fullName,
+      email: g.email,
+      phone: g.phone,
+      reservationCount: g.reservationsCount,
+      createdAt: g.createdAt?.slice(0, 10),
+    }));
+
+    return {
+      content: [{ type: "text", text: JSON.stringify({ total: data.count, guests }, null, 2) }],
+    };
+  }
+);
+
+// Tool 21: Get Guest by ID
+server.tool(
+  "get_guest_by_id",
+  "Get detailed guest profile by guest ID.",
+  {
+    guestId: z.string().describe("The guest ID"),
+  },
+  async (params) => {
+    const data = await guestyGet(`/guests/${params.guestId}`);
+    const guest = {
+      id: data._id,
+      fullName: data.fullName,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      email: data.email,
+      phone: data.phone,
+      address: data.address,
+      reservationsCount: data.reservationsCount,
+      notes: data.notes,
+      tags: data.tags,
+      createdAt: data.createdAt?.slice(0, 10),
+    };
+
+    return {
+      content: [{ type: "text", text: JSON.stringify(guest, null, 2) }],
+    };
+  }
+);
+
+// Tool 22: Update Listing
+server.tool(
+  "update_listing",
+  "Update listing details such as title, description, amenities, min nights, and max guests.",
+  {
+    listingId: z.string().describe("The listing ID to update"),
+    title: z.string().optional().describe("New listing title"),
+    publicDescription: z.string().optional().describe("Public-facing description"),
+    privateDescription: z.string().optional().describe("Private/internal description"),
+    amenities: z.array(z.string()).optional().describe("Array of amenity strings"),
+    minNights: z.number().optional().describe("Minimum night stay"),
+    maxGuests: z.number().optional().describe("Maximum number of guests"),
+  },
+  async (params) => {
+    const body = {};
+    if (params.title) body.title = params.title;
+    if (params.publicDescription) body.publicDescription = { summary: params.publicDescription };
+    if (params.privateDescription) body.privateDescription = params.privateDescription;
+    if (params.amenities) body.amenities = params.amenities;
+    if (params.minNights) body.minNights = params.minNights;
+    if (params.maxGuests) body.accommodates = params.maxGuests;
+
+    const data = await guestyPut(`/listings/${params.listingId}`, body);
+    const updated = Object.keys(body).join(", ");
+    return { content: [{ type: "text", text: `Listing ${params.listingId} updated. Fields changed: ${updated}` }] };
+  }
+);
+
+// Tool 23: Get Automation Rules
+server.tool(
+  "get_automation_rules",
+  "List automation and workflow rules configured in Guesty.",
+  {
+    limit: z.number().optional().default(25).describe("Max results (default 25)"),
+  },
+  async (params) => {
+    const data = await guestyGet("/automations", { limit: params.limit });
+    const automations = (data.results || []).map((a) => ({
+      id: a._id,
+      title: a.title,
+      active: a.active,
+      trigger: a.trigger,
+      createdAt: a.createdAt?.slice(0, 10),
+    }));
+
+    return {
+      content: [{ type: "text", text: JSON.stringify({ total: data.count, automations }, null, 2) }],
+    };
+  }
+);
+
+// Tool 24: Create Task
+server.tool(
+  "create_task",
+  "Create a cleaning or maintenance task for a listing.",
+  {
+    listingId: z.string().describe("The listing ID the task is for"),
+    type: z.string().describe("Task type: cleaning or maintenance"),
+    scheduledFor: z.string().describe("Scheduled date (YYYY-MM-DD)"),
+    assigneeId: z.string().optional().describe("Assignee user ID"),
+    description: z.string().optional().describe("Task description/notes"),
+  },
+  async (params) => {
+    const body = {
+      listingId: params.listingId,
+      type: params.type,
+      scheduledFor: params.scheduledFor,
+    };
+    if (params.assigneeId) body.assigneeId = params.assigneeId;
+    if (params.description) body.description = params.description;
+
+    const data = await guestyPost("/tasks-open-api/tasks", body);
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          success: true,
+          taskId: data._id,
+          type: params.type,
+          listing: params.listingId,
+          scheduledFor: params.scheduledFor,
+        }, null, 2),
+      }],
+    };
+  }
+);
+
+// Tool 25: Update Reservation
+server.tool(
+  "update_reservation",
+  "Update reservation details such as status, dates, guest info, or add notes.",
+  {
+    reservationId: z.string().describe("The reservation ID to update"),
+    status: z.string().optional().describe("New status: confirmed, canceled, inquiry, etc."),
+    checkIn: z.string().optional().describe("New check-in date (YYYY-MM-DD)"),
+    checkOut: z.string().optional().describe("New check-out date (YYYY-MM-DD)"),
+    guestName: z.string().optional().describe("Updated guest full name"),
+    guestEmail: z.string().optional().describe("Updated guest email"),
+    note: z.string().optional().describe("Add a note to the reservation"),
+  },
+  async (params) => {
+    const body = {};
+    if (params.status) body.status = params.status;
+    if (params.checkIn) body.checkInDateLocalized = params.checkIn;
+    if (params.checkOut) body.checkOutDateLocalized = params.checkOut;
+    if (params.guestName || params.guestEmail) {
+      body.guest = {};
+      if (params.guestName) body.guest.fullName = params.guestName;
+      if (params.guestEmail) body.guest.email = params.guestEmail;
+    }
+    if (params.note) body.note = params.note;
+
+    const data = await guestyPut(`/reservations/${params.reservationId}`, body);
+    const updated = Object.keys(body).join(", ");
+    return { content: [{ type: "text", text: `Reservation ${params.reservationId} updated. Fields changed: ${updated}` }] };
+  }
+);
+
+// Tool 26: Get Supported Languages
+server.tool(
+  "get_supported_languages",
+  "Get supported languages configured for a listing.",
+  {
+    listingId: z.string().describe("The listing ID"),
+  },
+  async (params) => {
+    const data = await guestyGet(`/listings/${params.listingId}/supported-languages`);
+    return {
+      content: [{ type: "text", text: JSON.stringify({ listing: params.listingId, languages: data }, null, 2) }],
+    };
+  }
+);
+
+// Tool 27: Search Reservations
+server.tool(
+  "search_reservations",
+  "Search reservations by guest name, email, or confirmation code.",
+  {
+    query: z.string().describe("Search query — guest name, email, or confirmation code"),
+    limit: z.number().optional().default(10).describe("Max results (default 10)"),
+  },
+  async (params) => {
+    const data = await guestyGet("/reservations", {
+      limit: params.limit,
+      q: params.query,
+      sort: "checkIn",
+      order: "desc",
+    });
+
+    const results = (data.results || []).map((r) => ({
+      id: r._id,
+      confirmationCode: r.confirmationCode,
+      guest: r.guest?.fullName || "Unknown",
+      guestEmail: r.guest?.email || "",
+      checkIn: r.checkIn?.slice(0, 10),
+      checkOut: r.checkOut?.slice(0, 10),
+      status: r.status,
+      listing: r.listing?.title || "Unknown",
+      listingId: r.listingId,
+      totalPaid: r.money?.totalPaid,
+    }));
+
+    return {
+      content: [{ type: "text", text: JSON.stringify({ total: data.count, results }, null, 2) }],
+    };
+  }
+);
+
+// Tool 28: Get Listing Occupancy
+server.tool(
+  "get_listing_occupancy",
+  "Calculate occupancy rate for a listing over a date range.",
+  {
+    listingId: z.string().describe("The listing ID"),
+    from: z.string().describe("Start date (YYYY-MM-DD)"),
+    to: z.string().describe("End date (YYYY-MM-DD)"),
+  },
+  async (params) => {
+    const data = await guestyGet(`/listings/${params.listingId}/calendar`, {
+      from: params.from,
+      to: params.to,
+    });
+
+    const days = data.days || [];
+    const totalDays = days.length;
+    let bookedDays = 0;
+    let blockedDays = 0;
+    let availableDays = 0;
+
+    days.forEach((d) => {
+      if (d.status === "booked" || d.status === "reserved") bookedDays++;
+      else if (d.status === "unavailable" || d.status === "blocked") blockedDays++;
+      else availableDays++;
+    });
+
+    const occupancyRate = totalDays > 0 ? Math.round((bookedDays / totalDays) * 10000) / 100 : 0;
+
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          listing: params.listingId,
+          from: params.from,
+          to: params.to,
+          totalDays,
+          bookedDays,
+          blockedDays,
+          availableDays,
+          occupancyRate: `${occupancyRate}%`,
+        }, null, 2),
+      }],
+    };
+  }
+);
+
+// Tool 29: Get Revenue Summary
+server.tool(
+  "get_revenue_summary",
+  "Get aggregated revenue summary across all or specific listings for a date range.",
+  {
+    from: z.string().optional().describe("Start date (YYYY-MM-DD)"),
+    to: z.string().optional().describe("End date (YYYY-MM-DD)"),
+    listingId: z.string().optional().describe("Filter by listing ID"),
+  },
+  async (params) => {
+    const queryParams = {
+      limit: 100,
+      fields: "money nightsCount listing checkIn checkOut status",
+      sort: "checkIn",
+      order: "desc",
+      status: "confirmed",
+    };
+    if (params.listingId) queryParams.listingId = params.listingId;
+    if (params.from) queryParams["checkIn[$gte]"] = params.from;
+    if (params.to) queryParams["checkIn[$lte]"] = params.to;
+
+    const data = await guestyGet("/reservations", queryParams);
+    const reservations = data.results || [];
+
+    let totalRevenue = 0;
+    let totalPayout = 0;
+    let totalNights = 0;
+
+    reservations.forEach((r) => {
+      totalRevenue += r.money?.totalPaid || 0;
+      totalPayout += r.money?.hostPayout || 0;
+      totalNights += r.nightsCount || 0;
+    });
+
+    const reservationCount = reservations.length;
+    const averageNightlyRate = totalNights > 0 ? Math.round((totalRevenue / totalNights) * 100) / 100 : 0;
+
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          totalRevenue,
+          totalPayout,
+          averageNightlyRate,
+          totalNights,
+          reservationCount,
+          period: {
+            from: params.from || "all-time",
+            to: params.to || "present",
+          },
+          listingId: params.listingId || "all",
+        }, null, 2),
+      }],
     };
   }
 );
