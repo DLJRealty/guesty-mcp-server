@@ -30,6 +30,7 @@
     "url": "https://github.com/DLJRealty/guesty-mcp-server.git"
   },
   "homepage": "https://github.com/DLJRealty/guesty-mcp-server",
+  "mcpName": "io.github.dljrealty/guesty",
   "engines": {
     "node": ">=18.0.0"
   }
