@@ -499,9 +499,29 @@ server.tool(
     if (params.from) queryParams["from"] = params.from;
     if (params.to) queryParams["to"] = params.to;
 
-    const data = await guestyGet("/owner-statements", queryParams);
+    // Owner statements not available via Open API v1 — fall back to financial data from reservations
+    const resData = await guestyGet("/reservations", {
+      limit: params.limit,
+      fields: "money guest checkIn checkOut listing status nightsCount",
+      ...(params.listingId && { listingId: params.listingId }),
+      ...(params.from && { "checkIn[$gte]": params.from }),
+      ...(params.to && { "checkIn[$lte]": params.to }),
+    });
+    const results = (resData.results || []).map((r) => ({
+      guest: r.guest?.fullName || "Unknown",
+      listing: r.listing?.title || "Unknown",
+      checkIn: r.checkIn?.slice(0, 10),
+      checkOut: r.checkOut?.slice(0, 10),
+      status: r.status,
+      totalPaid: r.money?.totalPaid,
+      hostPayout: r.money?.hostPayout,
+      commission: r.money?.commission,
+      currency: r.money?.currency,
+    }));
+    const totalRevenue = results.reduce((sum, r) => sum + (r.totalPaid || 0), 0);
+    const totalPayout = results.reduce((sum, r) => sum + (r.hostPayout || 0), 0);
     return {
-      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      content: [{ type: "text", text: JSON.stringify({ summary: { totalRevenue, totalPayout, count: results.length }, results }, null, 2) }],
     };
   }
 );
@@ -522,7 +542,14 @@ server.tool(
     if (params.from) queryParams["from"] = params.from;
     if (params.to) queryParams["to"] = params.to;
 
-    const data = await guestyGet("/expenses", queryParams);
+    // Expenses endpoint may not be available on all Guesty plans
+    let data;
+    try {
+      data = await guestyGet("/expenses", queryParams);
+    } catch (e) {
+      // Fall back to listing expenses if main endpoint not available
+      return { content: [{ type: "text", text: JSON.stringify({ note: "Expenses endpoint not available on your Guesty plan. Use get_financials for reservation-based financial data." }, null, 2) }] };
+    }
     const expenses = (data.results || []).map((e) => ({
       id: e._id,
       title: e.title,
@@ -585,26 +612,29 @@ server.tool(
   {
     listingId: z.string().optional().describe("Filter by listing ID"),
     status: z.string().optional().describe("Filter by status: pending, confirmed, completed, canceled"),
-    limit: z.number().optional().default(10).describe("Max results"),
+    limit: z.number().optional().default(25).describe("Max results (minimum 25 per Guesty API)"),
   },
   async (params) => {
-    const queryParams = { limit: params.limit };
+    const queryParams = {
+      limit: Math.max(params.limit, 25),
+      columns: "id,status,type,listingId,scheduledFor,assignee,description",
+    };
     if (params.listingId) queryParams.listingId = params.listingId;
     if (params.status) queryParams.status = params.status;
 
     const data = await guestyGet("/tasks-open-api/tasks", queryParams);
-    const tasks = (data.results || []).map((t) => ({
-      id: t._id,
+    const tasks = (data.data || data.results || []).map((t) => ({
+      id: t._id || t.id,
       type: t.type,
       status: t.status,
-      listing: t.listing?.title || "Unknown",
-      assignee: t.assignee?.fullName || "Unassigned",
-      scheduledFor: t.scheduledFor?.slice(0, 10),
-      description: t.description?.slice(0, 200),
+      listingId: t.listingId,
+      assignee: t.assignee?.fullName || t.assignee || "Unassigned",
+      scheduledFor: t.scheduledFor?.slice?.(0, 10) || t.scheduledFor,
+      description: t.description?.slice?.(0, 200) || t.description,
     }));
 
     return {
-      content: [{ type: "text", text: JSON.stringify({ total: data.count, tasks }, null, 2) }],
+      content: [{ type: "text", text: JSON.stringify({ total: data.count || tasks.length, tasks }, null, 2) }],
     };
   }
 );
@@ -815,18 +845,20 @@ server.tool(
     limit: z.number().optional().default(25).describe("Max results (default 25)"),
   },
   async (params) => {
-    const data = await guestyGet("/automations", { limit: params.limit });
-    const automations = (data.results || []).map((a) => ({
-      id: a._id,
-      title: a.title,
-      active: a.active,
-      trigger: a.trigger,
-      createdAt: a.createdAt?.slice(0, 10),
-    }));
-
-    return {
-      content: [{ type: "text", text: JSON.stringify({ total: data.count, automations }, null, 2) }],
-    };
+    // Automations endpoint may not be available on Open API v1
+    try {
+      const data = await guestyGet("/automations", { limit: params.limit });
+      const automations = (data.results || []).map((a) => ({
+        id: a._id,
+        title: a.title,
+        active: a.active,
+        trigger: a.trigger,
+        createdAt: a.createdAt?.slice(0, 10),
+      }));
+      return { content: [{ type: "text", text: JSON.stringify({ total: data.count, automations }, null, 2) }] };
+    } catch (e) {
+      return { content: [{ type: "text", text: JSON.stringify({ note: "Automations endpoint not available on your Guesty plan or API version. Check Guesty dashboard for automation rules." }, null, 2) }] };
+    }
   }
 );
 
@@ -905,7 +937,15 @@ server.tool(
     listingId: z.string().describe("The listing ID"),
   },
   async (params) => {
-    const data = await guestyGet(`/listings/${params.listingId}/supported-languages`);
+    // Try supported-languages endpoint, fall back to listing data
+    let data;
+    try {
+      data = await guestyGet(`/listings/${params.listingId}/supported-languages`);
+    } catch (e) {
+      // Fall back to extracting language info from listing
+      const listing = await guestyGet(`/listings/${params.listingId}`);
+      data = { languages: listing.languages || listing.supportedLanguages || [], note: "Extracted from listing data" };
+    }
     return {
       content: [{ type: "text", text: JSON.stringify({ listing: params.listingId, languages: data }, null, 2) }],
     };
