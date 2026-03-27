@@ -103,10 +103,28 @@ async function guestyPut(path, body, retries = 2) {
   return res.json();
 }
 
+async function guestyDelete(path, retries = 2) {
+  const token = await getToken();
+  const res = await fetch(`${GUESTY_API_BASE}${path}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+  });
+
+  if (res.status === 429 && retries > 0) {
+    const wait = Math.min(parseInt(res.headers.get("retry-after") || "5", 10), 30) * 1000;
+    await new Promise((r) => setTimeout(r, wait));
+    return guestyDelete(path, retries - 1);
+  }
+
+  if (!res.ok) throw new Error(`Guesty API error ${res.status}: ${await res.text()}`);
+  const text = await res.text();
+  return text ? JSON.parse(text) : { success: true };
+}
+
 // Create MCP Server
 const server = new McpServer({
   name: "guesty-mcp-server",
-  version: "0.3.0",
+  version: "0.4.0",
 });
 
 // Tool 1: Get Reservations
@@ -734,19 +752,23 @@ server.tool(
     if (params.vendor) body.vendor = params.vendor;
     if (params.date) body.date = params.date;
 
-    const data = await guestyPost("/expenses", body);
-    return {
-      content: [{
-        type: "text",
-        text: JSON.stringify({
-          success: true,
-          expenseId: data._id,
-          title: params.title,
-          amount: `${params.currency} ${params.amount}`,
-          listing: params.listingId,
-        }, null, 2),
-      }],
-    };
+    try {
+      const data = await guestyPost("/expenses", body);
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            success: true,
+            expenseId: data._id,
+            title: params.title,
+            amount: `${params.currency} ${params.amount}`,
+            listing: params.listingId,
+          }, null, 2),
+        }],
+      };
+    } catch (e) {
+      return { content: [{ type: "text", text: JSON.stringify({ error: "Expenses endpoint not available on your Guesty plan.", details: e.message }, null, 2) }] };
+    }
   }
 );
 
@@ -1088,6 +1110,248 @@ server.tool(
         }, null, 2),
       }],
     };
+  }
+);
+
+// Tool 30: Get Webhooks
+server.tool(
+  "get_webhooks",
+  "List all registered webhooks for your Guesty account.",
+  {
+    limit: z.number().optional().default(25).describe("Max results"),
+  },
+  async (params) => {
+    try {
+      const data = await guestyGet("/webhooks", { limit: params.limit });
+      const webhooks = (data.results || data || []).map((w) => ({
+        id: w._id,
+        url: w.url,
+        events: w.events,
+        active: w.active,
+        createdAt: w.createdAt?.slice(0, 10),
+      }));
+      return { content: [{ type: "text", text: JSON.stringify({ total: webhooks.length, webhooks }, null, 2) }] };
+    } catch (e) {
+      return { content: [{ type: "text", text: JSON.stringify({ error: "Webhooks endpoint not available.", details: e.message }, null, 2) }] };
+    }
+  }
+);
+
+// Tool 31: Create Webhook
+server.tool(
+  "create_webhook",
+  "Register a new webhook to receive event notifications from Guesty.",
+  {
+    url: z.string().describe("The URL to receive webhook events"),
+    events: z.array(z.string()).describe("Events to subscribe to (e.g., 'reservation.created', 'reservation.updated', 'guest.checked_in')"),
+    secret: z.string().optional().describe("Webhook signing secret for verification"),
+  },
+  async (params) => {
+    try {
+      const body = { url: params.url, events: params.events };
+      if (params.secret) body.secret = params.secret;
+      const data = await guestyPost("/webhooks", body);
+      return { content: [{ type: "text", text: JSON.stringify({ success: true, webhookId: data._id, url: params.url, events: params.events }, null, 2) }] };
+    } catch (e) {
+      return { content: [{ type: "text", text: JSON.stringify({ error: "Failed to create webhook.", details: e.message }, null, 2) }] };
+    }
+  }
+);
+
+// Tool 32: Delete Webhook
+server.tool(
+  "delete_webhook",
+  "Delete a registered webhook by ID.",
+  {
+    webhookId: z.string().describe("The webhook ID to delete"),
+  },
+  async (params) => {
+    try {
+      await guestyDelete(`/webhooks/${params.webhookId}`);
+      return { content: [{ type: "text", text: `Webhook ${params.webhookId} deleted successfully.` }] };
+    } catch (e) {
+      return { content: [{ type: "text", text: JSON.stringify({ error: "Failed to delete webhook.", details: e.message }, null, 2) }] };
+    }
+  }
+);
+
+// Tool 33: Get Custom Fields
+server.tool(
+  "get_custom_fields",
+  "Fetch custom fields configured for listings or reservations.",
+  {
+    entity: z.string().optional().default("listing").describe("Entity type: listing or reservation"),
+  },
+  async (params) => {
+    try {
+      const data = await guestyGet("/custom-fields", { entity: params.entity });
+      const fields = (data.results || data || []).map((f) => ({
+        id: f._id,
+        key: f.key || f.fieldId,
+        label: f.label || f.name,
+        type: f.type,
+        entity: f.entity,
+      }));
+      return { content: [{ type: "text", text: JSON.stringify({ total: fields.length, fields }, null, 2) }] };
+    } catch (e) {
+      return { content: [{ type: "text", text: JSON.stringify({ error: "Custom fields endpoint not available.", details: e.message }, null, 2) }] };
+    }
+  }
+);
+
+// Tool 36: Get Account Info
+server.tool(
+  "get_account_info",
+  "Get current Guesty account information and subscription details.",
+  {},
+  async () => {
+    try {
+      const data = await guestyGet("/accounts/me");
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            id: data._id,
+            name: data.name,
+            email: data.email,
+            company: data.companyName,
+            timezone: data.timezone,
+            currency: data.currency,
+            plan: data.plan || data.subscription?.plan,
+          }, null, 2),
+        }],
+      };
+    } catch (e) {
+      return { content: [{ type: "text", text: JSON.stringify({ error: "Account info not available.", details: e.message }, null, 2) }] };
+    }
+  }
+);
+
+// Tool 37: Get Reservation Financials
+server.tool(
+  "get_reservation_financials",
+  "Get detailed financial breakdown for a specific reservation including payments, charges, and adjustments.",
+  {
+    reservationId: z.string().describe("The reservation ID"),
+  },
+  async (params) => {
+    const data = await guestyGet(`/reservations/${params.reservationId}`, {
+      fields: "money guest listing checkIn checkOut status confirmationCode",
+    });
+    const money = data.money || {};
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          confirmationCode: data.confirmationCode,
+          guest: data.guest?.fullName,
+          listing: data.listing?.title,
+          checkIn: data.checkIn?.slice(0, 10),
+          checkOut: data.checkOut?.slice(0, 10),
+          status: data.status,
+          financials: {
+            totalPrice: money.totalPrice,
+            totalPaid: money.totalPaid,
+            balanceDue: money.balanceDue,
+            hostPayout: money.hostPayout,
+            commission: money.commission,
+            cleaningFee: money.cleaningFee,
+            channelCommission: money.channelCommission,
+            currency: money.currency,
+            payments: money.payments || [],
+          },
+        }, null, 2),
+      }],
+    };
+  }
+);
+
+// Tool 38: Create Reservation Note
+server.tool(
+  "create_reservation_note",
+  "Add an internal note to a reservation visible only to the property management team.",
+  {
+    reservationId: z.string().describe("The reservation ID"),
+    note: z.string().describe("Note text to add"),
+  },
+  async (params) => {
+    try {
+      const data = await guestyPost(`/reservations/${params.reservationId}/notes`, {
+        body: params.note,
+      });
+      return { content: [{ type: "text", text: JSON.stringify({ success: true, noteId: data._id, reservation: params.reservationId }, null, 2) }] };
+    } catch (e) {
+      // Fallback: try updating reservation with note field
+      try {
+        await guestyPut(`/reservations/${params.reservationId}`, { note: params.note });
+        return { content: [{ type: "text", text: `Note added to reservation ${params.reservationId} via update.` }] };
+      } catch (e2) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: "Failed to add note.", details: e2.message }, null, 2) }] };
+      }
+    }
+  }
+);
+
+// Tool 39: Get Listing Pricing
+server.tool(
+  "get_listing_pricing",
+  "Get pricing details for a listing including base price, weekly/monthly discounts, and extra fees.",
+  {
+    listingId: z.string().describe("The listing ID"),
+  },
+  async (params) => {
+    const data = await guestyGet(`/listings/${params.listingId}`, {
+      fields: "prices terms financials title nickname",
+    });
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          listing: data.title || data.nickname,
+          pricing: {
+            basePrice: data.prices?.basePrice,
+            weeklyDiscount: data.prices?.weeklyPriceFactor,
+            monthlyDiscount: data.prices?.monthlyPriceFactor,
+            cleaningFee: data.prices?.cleaningFee,
+            extraPersonFee: data.prices?.extraPersonFee,
+            currency: data.prices?.currency,
+          },
+          terms: {
+            minNights: data.terms?.minNights,
+            maxNights: data.terms?.maxNights,
+            cancellationPolicy: data.terms?.cancellationPolicy,
+          },
+        }, null, 2),
+      }],
+    };
+  }
+);
+
+// Tool 40: Update Listing Pricing
+server.tool(
+  "update_listing_pricing",
+  "Update pricing for a listing — base price, cleaning fee, extra person fee, and discounts.",
+  {
+    listingId: z.string().describe("The listing ID"),
+    basePrice: z.number().optional().describe("Nightly base price"),
+    cleaningFee: z.number().optional().describe("Cleaning fee"),
+    extraPersonFee: z.number().optional().describe("Fee per extra person"),
+    weeklyPriceFactor: z.number().optional().describe("Weekly discount factor (e.g., 0.9 for 10% off)"),
+    monthlyPriceFactor: z.number().optional().describe("Monthly discount factor (e.g., 0.8 for 20% off)"),
+    currency: z.string().optional().describe("Currency code (e.g., USD)"),
+  },
+  async (params) => {
+    const prices = {};
+    if (params.basePrice !== undefined) prices.basePrice = params.basePrice;
+    if (params.cleaningFee !== undefined) prices.cleaningFee = params.cleaningFee;
+    if (params.extraPersonFee !== undefined) prices.extraPersonFee = params.extraPersonFee;
+    if (params.weeklyPriceFactor !== undefined) prices.weeklyPriceFactor = params.weeklyPriceFactor;
+    if (params.monthlyPriceFactor !== undefined) prices.monthlyPriceFactor = params.monthlyPriceFactor;
+    if (params.currency) prices.currency = params.currency;
+
+    const data = await guestyPut(`/listings/${params.listingId}`, { prices });
+    const updated = Object.keys(prices).join(", ");
+    return { content: [{ type: "text", text: `Pricing updated for ${params.listingId}. Fields changed: ${updated}` }] };
   }
 );
 

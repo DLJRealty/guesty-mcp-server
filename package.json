@@ -1,6 +1,6 @@
 {
   "name": "guesty-mcp-server",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "MCP Server for Guesty Property Management - The first Guesty MCP server",
   "main": "src/server.js",
   "bin": {
