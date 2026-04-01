@@ -23,7 +23,8 @@
   "author": "DLJ Properties",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "latest"
+    "@modelcontextprotocol/sdk": "latest",
+    "express": "^5.2.1"
   },
   "repository": {
     "type": "git",
