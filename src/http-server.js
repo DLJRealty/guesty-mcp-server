@@ -118,6 +118,13 @@ app.get("/tools", (req, res) => {
   res.json({ tools: TOOLS, count: TOOLS.length });
 });
 
-app.listen(PORT, () => {
-  console.log(`Guesty MCP HTTP Server on port ${PORT}`);
-});
+// Export for Vercel serverless, listen for standalone
+if (process.env.VERCEL) {
+  // Vercel handles the HTTP layer
+} else {
+  app.listen(PORT, () => {
+    console.log(`Guesty MCP HTTP Server on port ${PORT}`);
+  });
+}
+
+export default app;
