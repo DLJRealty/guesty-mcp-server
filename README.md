@@ -7,6 +7,10 @@ The first MCP (Model Context Protocol) server for [Guesty](https://guesty.com) p
 
 **38 tools** covering reservations, listings, guests, messaging, financials, tasks, calendars, webhooks, pricing, and more.
 
+> **Want AI to handle your guest messages 24/7?** [Guesty Copilot](https://guestycopilot.com) -- AI guest management for Guesty hosts, built on this MCP server. Now in beta.
+
+> **Stay updated:** [Sign up for release notes and new tool announcements](https://guestycopilot.com#signup)
+
 ## Quick Start
 
 ```bash
