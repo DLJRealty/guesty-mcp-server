@@ -11,6 +11,15 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3001;
 
+// Request counter
+const stats = { total: 0, endpoints: {}, startedAt: new Date().toISOString() };
+app.use((req, res, next) => {
+  stats.total++;
+  const key = `${req.method} ${req.path}`;
+  stats.endpoints[key] = (stats.endpoints[key] || 0) + 1;
+  next();
+});
+
 // Server info
 const SERVER_INFO = {
   name: "guesty-mcp-server",
@@ -116,6 +125,11 @@ app.post("/mcp", (req, res) => {
 // List tools as REST
 app.get("/tools", (req, res) => {
   res.json({ tools: TOOLS, count: TOOLS.length });
+});
+
+// Request stats
+app.get("/stats", (req, res) => {
+  res.json({ ...stats, uptime: `${((Date.now() - new Date(stats.startedAt).getTime()) / 3600000).toFixed(1)}h` });
 });
 
 // Export for Vercel serverless, listen for standalone
