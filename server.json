@@ -1,36 +1,17 @@
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "\$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.DLJRealty/guesty",
-  "description": "MCP server for Guesty property management — 38 tools for STR operations.",
-  "repository": {
-    "url": "https://github.com/DLJRealty/guesty-mcp-server",
-    "source": "github"
-  },
-  "version": "0.4.2",
-  "packages": [
-    {
-      "registryType": "npm",
-      "identifier": "guesty-mcp-server",
-      "version": "0.4.2",
-      "transport": {
-        "type": "stdio"
-      },
-      "environmentVariables": [
-        {
-          "description": "Guesty OAuth2 Client ID",
-          "isRequired": true,
-          "format": "string",
-          "isSecret": true,
-          "name": "GUESTY_CLIENT_ID"
-        },
-        {
-          "description": "Guesty OAuth2 Client Secret",
-          "isRequired": true,
-          "format": "string",
-          "isSecret": true,
-          "name": "GUESTY_CLIENT_SECRET"
-        }
-      ]
-    }
-  ]
+  "title": "Guesty MCP Server",
+  "description": "The first MCP server for Guesty property management. 38 tools for reservations, guests, messaging, pricing, financials, calendars, reviews, tasks, and webhooks.",
+  "version": "0.5.0",
+  "packages": [{
+    "registryType": "npm",
+    "identifier": "guesty-mcp-server",
+    "version": "0.5.0",
+    "transport": { "type": "stdio" }
+  }],
+  "remotes": [{
+    "transportType": "streamable-http",
+    "url": "https://guesty-mcp-server.vercel.app"
+  }]
 }

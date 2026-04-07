@@ -2,6 +2,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { getTier, getTierInfo, gatedHandler, FREE_TOOLS } from './license.js';
 
 // Guesty API Configuration
 const GUESTY_CLIENT_ID = process.env.GUESTY_CLIENT_ID;
@@ -124,8 +125,12 @@ async function guestyDelete(path, retries = 2) {
 // Create MCP Server
 const server = new McpServer({
   name: "guesty-mcp-server",
-  version: "0.4.0",
+  version: "0.5.0",
 });
+// License tier check
+const _tier = getTier();
+console.error();
+
 
 // Tool 1: Get Reservations
 server.tool(
@@ -141,6 +146,7 @@ server.tool(
     listingId: z.string().optional().describe("Filter by listing ID"),
     status: z.string().optional().describe("Filter by status: confirmed, canceled, inquiry, etc."),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async (params) => {
     const queryParams = {
       limit: params.limit,
@@ -188,6 +194,7 @@ server.tool(
     listingId: z.string().optional().describe("Specific listing ID. Omit to get all listings."),
     limit: z.number().optional().default(25).describe("Max results when fetching all"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async (params) => {
     let data;
     if (params.listingId) {
@@ -231,7 +238,8 @@ server.tool(
     reservationId: z.string().optional().describe("Filter by reservation ID"),
     limit: z.number().optional().default(10).describe("Max conversations to return"),
   },
-  async (params) => {
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  gatedHandler("get_conversations", async (params) => {
     const queryParams = { limit: params.limit };
     if (params.reservationId) queryParams["filters[reservationId]"] = params.reservationId;
 
@@ -247,7 +255,7 @@ server.tool(
     }));
 
     return { content: [{ type: "text", text: JSON.stringify({ total: data.count, conversations: convos }, null, 2) }] };
-  }
+  })
 );
 
 // Tool 4: Send Guest Message
@@ -258,12 +266,13 @@ server.tool(
     conversationId: z.string().describe("The conversation ID to reply in"),
     message: z.string().describe("The message text to send to the guest"),
   },
-  async (params) => {
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+  gatedHandler("send_guest_message", async (params) => {
     const data = await guestyPost(`/communication/conversations/${params.conversationId}/send-message`, {
       body: params.message,
     });
     return { content: [{ type: "text", text: `Message sent successfully. ID: ${data._id || "OK"}` }] };
-  }
+  })
 );
 
 // Tool 5: Get Financials
@@ -276,6 +285,7 @@ server.tool(
     to: z.string().optional().describe("End date (YYYY-MM-DD)"),
     limit: z.number().optional().default(25).describe("Max results"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async (params) => {
     // Pull reservations with financial data, sorted by most recent
     const queryParams = {
@@ -327,7 +337,8 @@ server.tool(
     dateTo: z.string().optional().describe("End date for date-specific pricing (YYYY-MM-DD)"),
     price: z.number().optional().describe("Price per night for the date range"),
   },
-  async (params) => {
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  gatedHandler("update_pricing", async (params) => {
     if (params.basePrice) {
       const data = await guestyPut(`/listings/${params.listingId}`, {
         prices: { basePrice: params.basePrice },
@@ -345,7 +356,7 @@ server.tool(
     }
 
     return { content: [{ type: "text", text: "Error: Provide either basePrice or dateFrom+dateTo+price" }] };
-  }
+  })
 );
 
 // ============ V2 TOOLS ============
@@ -364,7 +375,8 @@ server.tool(
     numberOfGuests: z.number().optional().default(1).describe("Number of guests"),
     source: z.string().optional().default("direct").describe("Booking source (direct, website, etc.)"),
   },
-  async (params) => {
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+  gatedHandler("create_reservation", async (params) => {
     const body = {
       listingId: params.listingId,
       checkInDateLocalized: params.checkIn,
@@ -393,7 +405,7 @@ server.tool(
         }, null, 2),
       }],
     };
-  }
+  })
 );
 
 // Tool 8: Get Reviews
@@ -404,6 +416,7 @@ server.tool(
     listingId: z.string().optional().describe("Filter by listing ID"),
     limit: z.number().optional().default(10).describe("Max results"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async (params) => {
     const queryParams = { limit: params.limit };
     if (params.listingId) queryParams.listingId = params.listingId;
@@ -435,6 +448,7 @@ server.tool(
     from: z.string().describe("Start date (YYYY-MM-DD)"),
     to: z.string().describe("End date (YYYY-MM-DD)"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async (params) => {
     const data = await guestyGet(`/listings/${params.listingId}/calendar`, {
       from: params.from,
@@ -467,7 +481,8 @@ server.tool(
     minNights: z.number().optional().describe("Minimum night stay"),
     blockReason: z.string().optional().describe("Reason for blocking: owner, maintenance, other"),
   },
-  async (params) => {
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  gatedHandler("update_calendar", async (params) => {
     const body = {};
     if (params.status) body.status = params.status;
     if (params.minNights) body.minNights = params.minNights;
@@ -482,7 +497,7 @@ server.tool(
     return {
       content: [{ type: "text", text: `Calendar updated for ${params.listingId}: ${params.dateFrom} to ${params.dateTo}` }],
     };
-  }
+  })
 );
 
 // Tool 11: Respond to Review
@@ -493,12 +508,13 @@ server.tool(
     reviewId: z.string().describe("The review ID to respond to"),
     response: z.string().describe("Your response text"),
   },
-  async (params) => {
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+  gatedHandler("respond_to_review", async (params) => {
     const data = await guestyPut(`/reviews/${params.reviewId}`, {
       response: params.response,
     });
     return { content: [{ type: "text", text: `Review response posted successfully for review ${params.reviewId}` }] };
-  }
+  })
 );
 
 // Tool 12: Get Owner Statements
@@ -511,6 +527,7 @@ server.tool(
     to: z.string().optional().describe("End date (YYYY-MM-DD)"),
     limit: z.number().optional().default(10).describe("Max results"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async (params) => {
     const queryParams = { limit: params.limit };
     if (params.listingId) queryParams.listingId = params.listingId;
@@ -554,6 +571,7 @@ server.tool(
     to: z.string().optional().describe("End date (YYYY-MM-DD)"),
     limit: z.number().optional().default(25).describe("Max results"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async (params) => {
     const queryParams = { limit: params.limit };
     if (params.listingId) queryParams.listingId = params.listingId;
@@ -595,6 +613,7 @@ server.tool(
   {
     listingId: z.string().optional().describe("Filter by listing ID to see which channels a property is on"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async (params) => {
     if (params.listingId) {
       const listing = await guestyGet(`/listings/${params.listingId}`);
@@ -632,6 +651,7 @@ server.tool(
     status: z.string().optional().describe("Filter by status: pending, confirmed, completed, canceled"),
     limit: z.number().optional().default(25).describe("Max results (minimum 25 per Guesty API)"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async (params) => {
     const queryParams = {
       limit: Math.max(params.limit, 25),
@@ -666,6 +686,7 @@ server.tool(
   {
     listingId: z.string().describe("The listing ID to get photos for"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async (params) => {
     const data = await guestyGet(`/listings/${params.listingId}`);
     const photos = (data.pictures || []).map((p) => ({
@@ -691,12 +712,13 @@ server.tool(
       caption: z.string().optional().describe("Photo caption"),
     })).describe("Array of photo objects with url and optional caption"),
   },
-  async (params) => {
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  gatedHandler("update_photos", async (params) => {
     const data = await guestyPut(`/listings/${params.listingId}`, {
       pictures: params.photos,
     });
     return { content: [{ type: "text", text: `Photos updated for listing ${params.listingId}. ${params.photos.length} photos set.` }] };
-  }
+  })
 );
 
 // Tool 18: Get Calendar Blocks
@@ -708,6 +730,7 @@ server.tool(
     from: z.string().describe("Start date (YYYY-MM-DD)"),
     to: z.string().describe("End date (YYYY-MM-DD)"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async (params) => {
     const data = await guestyGet(`/listings/${params.listingId}/calendar`, {
       from: params.from,
@@ -741,7 +764,8 @@ server.tool(
     vendor: z.string().optional().describe("Vendor/supplier name"),
     date: z.string().optional().describe("Expense date (YYYY-MM-DD)"),
   },
-  async (params) => {
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  gatedHandler("create_expense", async (params) => {
     const body = {
       listingId: params.listingId,
       title: params.title,
@@ -769,7 +793,7 @@ server.tool(
     } catch (e) {
       return { content: [{ type: "text", text: JSON.stringify({ error: "Expenses endpoint not available on your Guesty plan.", details: e.message }, null, 2) }] };
     }
-  }
+  })
 );
 
 // Tool 20: Get Guests
@@ -781,6 +805,7 @@ server.tool(
     skip: z.number().optional().describe("Offset for pagination"),
     query: z.string().optional().describe("Search by guest name or email"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async (params) => {
     const queryParams = { limit: params.limit };
     if (params.skip) queryParams.skip = params.skip;
@@ -809,6 +834,7 @@ server.tool(
   {
     guestId: z.string().describe("The guest ID"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async (params) => {
     const data = await guestyGet(`/guests/${params.guestId}`);
     const guest = {
@@ -844,7 +870,8 @@ server.tool(
     minNights: z.number().optional().describe("Minimum night stay"),
     maxGuests: z.number().optional().describe("Maximum number of guests"),
   },
-  async (params) => {
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  gatedHandler("update_listing", async (params) => {
     const body = {};
     if (params.title) body.title = params.title;
     if (params.publicDescription) body.publicDescription = { summary: params.publicDescription };
@@ -856,7 +883,7 @@ server.tool(
     const data = await guestyPut(`/listings/${params.listingId}`, body);
     const updated = Object.keys(body).join(", ");
     return { content: [{ type: "text", text: `Listing ${params.listingId} updated. Fields changed: ${updated}` }] };
-  }
+  })
 );
 
 // Tool 23: Get Automation Rules
@@ -866,6 +893,7 @@ server.tool(
   {
     limit: z.number().optional().default(25).describe("Max results (default 25)"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async (params) => {
     // Automations endpoint may not be available on Open API v1
     try {
@@ -895,7 +923,8 @@ server.tool(
     assigneeId: z.string().optional().describe("Assignee user ID"),
     description: z.string().optional().describe("Task description/notes"),
   },
-  async (params) => {
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  gatedHandler("create_task", async (params) => {
     const body = {
       listingId: params.listingId,
       type: params.type,
@@ -917,7 +946,7 @@ server.tool(
         }, null, 2),
       }],
     };
-  }
+  })
 );
 
 // Tool 25: Update Reservation
@@ -933,7 +962,8 @@ server.tool(
     guestEmail: z.string().optional().describe("Updated guest email"),
     note: z.string().optional().describe("Add a note to the reservation"),
   },
-  async (params) => {
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  gatedHandler("update_reservation", async (params) => {
     const body = {};
     if (params.status) body.status = params.status;
     if (params.checkIn) body.checkInDateLocalized = params.checkIn;
@@ -948,7 +978,7 @@ server.tool(
     const data = await guestyPut(`/reservations/${params.reservationId}`, body);
     const updated = Object.keys(body).join(", ");
     return { content: [{ type: "text", text: `Reservation ${params.reservationId} updated. Fields changed: ${updated}` }] };
-  }
+  })
 );
 
 // Tool 26: Get Supported Languages
@@ -958,6 +988,7 @@ server.tool(
   {
     listingId: z.string().describe("The listing ID"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async (params) => {
     // Try supported-languages endpoint, fall back to listing data
     let data;
@@ -982,6 +1013,7 @@ server.tool(
     query: z.string().describe("Search query — guest name, email, or confirmation code"),
     limit: z.number().optional().default(10).describe("Max results (default 10)"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async (params) => {
     const data = await guestyGet("/reservations", {
       limit: params.limit,
@@ -1018,6 +1050,7 @@ server.tool(
     from: z.string().describe("Start date (YYYY-MM-DD)"),
     to: z.string().describe("End date (YYYY-MM-DD)"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async (params) => {
     const data = await guestyGet(`/listings/${params.listingId}/calendar`, {
       from: params.from,
@@ -1065,6 +1098,7 @@ server.tool(
     to: z.string().optional().describe("End date (YYYY-MM-DD)"),
     listingId: z.string().optional().describe("Filter by listing ID"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async (params) => {
     const queryParams = {
       limit: 100,
@@ -1120,6 +1154,7 @@ server.tool(
   {
     limit: z.number().optional().default(25).describe("Max results"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async (params) => {
     try {
       const data = await guestyGet("/webhooks", { limit: params.limit });
@@ -1146,7 +1181,8 @@ server.tool(
     events: z.array(z.string()).describe("Events to subscribe to (e.g., 'reservation.created', 'reservation.updated', 'guest.checked_in')"),
     secret: z.string().optional().describe("Webhook signing secret for verification"),
   },
-  async (params) => {
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  gatedHandler("create_webhook", async (params) => {
     try {
       const body = { url: params.url, events: params.events };
       if (params.secret) body.secret = params.secret;
@@ -1155,7 +1191,7 @@ server.tool(
     } catch (e) {
       return { content: [{ type: "text", text: JSON.stringify({ error: "Failed to create webhook.", details: e.message }, null, 2) }] };
     }
-  }
+  })
 );
 
 // Tool 32: Delete Webhook
@@ -1165,14 +1201,15 @@ server.tool(
   {
     webhookId: z.string().describe("The webhook ID to delete"),
   },
-  async (params) => {
+  { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+  gatedHandler("delete_webhook", async (params) => {
     try {
       await guestyDelete(`/webhooks/${params.webhookId}`);
       return { content: [{ type: "text", text: `Webhook ${params.webhookId} deleted successfully.` }] };
     } catch (e) {
       return { content: [{ type: "text", text: JSON.stringify({ error: "Failed to delete webhook.", details: e.message }, null, 2) }] };
     }
-  }
+  })
 );
 
 // Tool 33: Get Custom Fields
@@ -1182,6 +1219,7 @@ server.tool(
   {
     entity: z.string().optional().default("listing").describe("Entity type: listing or reservation"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async (params) => {
     try {
       const data = await guestyGet("/custom-fields", { entity: params.entity });
@@ -1204,6 +1242,7 @@ server.tool(
   "get_account_info",
   "Get current Guesty account information and subscription details.",
   {},
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async () => {
     try {
       const data = await guestyGet("/accounts/me");
@@ -1234,6 +1273,7 @@ server.tool(
   {
     reservationId: z.string().describe("The reservation ID"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async (params) => {
     const data = await guestyGet(`/reservations/${params.reservationId}`, {
       fields: "money guest listing checkIn checkOut status confirmationCode",
@@ -1274,7 +1314,8 @@ server.tool(
     reservationId: z.string().describe("The reservation ID"),
     note: z.string().describe("Note text to add"),
   },
-  async (params) => {
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  gatedHandler("create_reservation_note", async (params) => {
     try {
       const data = await guestyPost(`/reservations/${params.reservationId}/notes`, {
         body: params.note,
@@ -1289,7 +1330,7 @@ server.tool(
         return { content: [{ type: "text", text: JSON.stringify({ error: "Failed to add note.", details: e2.message }, null, 2) }] };
       }
     }
-  }
+  })
 );
 
 // Tool 39: Get Listing Pricing
@@ -1299,6 +1340,7 @@ server.tool(
   {
     listingId: z.string().describe("The listing ID"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async (params) => {
     const data = await guestyGet(`/listings/${params.listingId}`, {
       fields: "prices terms financials title nickname",
@@ -1340,7 +1382,8 @@ server.tool(
     monthlyPriceFactor: z.number().optional().describe("Monthly discount factor (e.g., 0.8 for 20% off)"),
     currency: z.string().optional().describe("Currency code (e.g., USD)"),
   },
-  async (params) => {
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  gatedHandler("update_listing_pricing", async (params) => {
     const prices = {};
     if (params.basePrice !== undefined) prices.basePrice = params.basePrice;
     if (params.cleaningFee !== undefined) prices.cleaningFee = params.cleaningFee;
@@ -1352,6 +1395,21 @@ server.tool(
     const data = await guestyPut(`/listings/${params.listingId}`, { prices });
     const updated = Object.keys(prices).join(", ");
     return { content: [{ type: "text", text: `Pricing updated for ${params.listingId}. Fields changed: ${updated}` }] };
+  })
+);
+
+
+// License Info Tool
+server.tool(
+  "get_license_info",
+  "Show current license tier, available tools, and upgrade information.",
+  {},
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  async () => {
+    const info = getTierInfo();
+    info.freeTools = FREE_TOOLS;
+    info.upgradeUrl = "https://guestycopilot.com/pricing";
+    return { content: [{ type: "text", text: JSON.stringify(info, null, 2) }] };
   }
 );
 

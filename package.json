@@ -1,6 +1,6 @@
 {
   "name": "guesty-mcp-server",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "description": "The first MCP server for Guesty property management. 38 tools for reservations, guests, messaging, pricing, financials, calendars, reviews, tasks, and webhooks.",
   "main": "src/server.js",
   "bin": {
