@@ -2,6 +2,13 @@
 
 All notable changes to the Guesty MCP Server will be documented in this file.
 
+## [0.8.2] - 2026-04-19
+
+### Fixed
+- npm description synced to "43 production tools" (was stale at "38 tools" on npm page)
+- Removed `claude-code` and `openclaw` from npm keywords (AI-disclosure hygiene)
+- Added `iot` and `enterprise` keywords for discoverability
+
 ## [0.8.1] - 2026-04-19
 
 ### Fixed

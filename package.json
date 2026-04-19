@@ -1,7 +1,7 @@
 {
   "name": "guesty-mcp-server",
-  "version": "0.8.1",
-  "description": "The first MCP server for Guesty property management. 43 tools (39 Guesty + 1 IoT + 3 Enterprise aggregators) for reservations, guests, messaging, pricing, financials, calendars, reviews, tasks, webhooks, and Enterprise-tier property health / checkout photos / maintenance alerts.",
+  "version": "0.8.2",
+  "description": "MCP server for Guesty property management — 43 production tools covering reservations, guests, messaging, pricing, revenue, tasks, webhooks, and IoT/property-health Enterprise tier.",
   "main": "src/server.js",
   "bin": {
     "guesty-mcp-server": "src/server.js",
@@ -23,10 +23,9 @@
     "vrbo",
     "vacation-rental",
     "ai-agent",
-    "claude",
-    "claude-code",
-    "openclaw",
     "pms",
+    "iot",
+    "enterprise",
     "hospitality",
     "real-estate",
     "automation"

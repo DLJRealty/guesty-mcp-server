@@ -3,42 +3,48 @@
   "name": "io.github.DLJRealty/guesty",
   "title": "Guesty MCP Server",
   "description": "MCP server for Guesty property management. 43 tools for STR operations.",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "repository": {
     "url": "https://github.com/DLJRealty/guesty-mcp-server",
     "source": "github"
   },
-  "packages": [{
-    "registryType": "npm",
-    "identifier": "guesty-mcp-server",
-    "version": "0.8.1",
-    "transport": { "type": "stdio" },
-    "environmentVariables": [
-      {
-        "description": "Guesty OAuth2 Client ID",
-        "isRequired": true,
-        "format": "string",
-        "isSecret": true,
-        "name": "GUESTY_CLIENT_ID"
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "guesty-mcp-server",
+      "version": "0.8.2",
+      "transport": {
+        "type": "stdio"
       },
-      {
-        "description": "Guesty OAuth2 Client Secret",
-        "isRequired": true,
-        "format": "string",
-        "isSecret": true,
-        "name": "GUESTY_CLIENT_SECRET"
-      },
-      {
-        "description": "License key for Pro/Business/Enterprise features (optional for free tier)",
-        "isRequired": false,
-        "format": "string",
-        "isSecret": true,
-        "name": "GUESTY_MCP_LICENSE_KEY"
-      }
-    ]
-  }],
-  "remotes": [{
-    "type": "streamable-http",
-    "url": "https://guesty-mcp-server.vercel.app"
-  }]
+      "environmentVariables": [
+        {
+          "description": "Guesty OAuth2 Client ID",
+          "isRequired": true,
+          "format": "string",
+          "isSecret": true,
+          "name": "GUESTY_CLIENT_ID"
+        },
+        {
+          "description": "Guesty OAuth2 Client Secret",
+          "isRequired": true,
+          "format": "string",
+          "isSecret": true,
+          "name": "GUESTY_CLIENT_SECRET"
+        },
+        {
+          "description": "License key for Pro/Business/Enterprise features (optional for free tier)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true,
+          "name": "GUESTY_MCP_LICENSE_KEY"
+        }
+      ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://guesty-mcp-server.vercel.app"
+    }
+  ]
 }
