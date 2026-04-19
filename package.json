@@ -1,7 +1,7 @@
 {
   "name": "guesty-mcp-server",
-  "version": "0.5.0",
-  "description": "The first MCP server for Guesty property management. 38 tools for reservations, guests, messaging, pricing, financials, calendars, reviews, tasks, and webhooks.",
+  "version": "0.8.1",
+  "description": "The first MCP server for Guesty property management. 43 tools (39 Guesty + 1 IoT + 3 Enterprise aggregators) for reservations, guests, messaging, pricing, financials, calendars, reviews, tasks, webhooks, and Enterprise-tier property health / checkout photos / maintenance alerts.",
   "main": "src/server.js",
   "bin": {
     "guesty-mcp-server": "src/server.js",
@@ -10,15 +10,26 @@
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
-    "test": "node tests/test-tools.js"
+    "test": "node tests/test-enterprise.js && node tests/test-iot.js"
   },
   "keywords": [
     "mcp",
+    "mcp-server",
+    "model-context-protocol",
     "guesty",
     "property-management",
     "short-term-rental",
     "airbnb",
-    "ai-agent"
+    "vrbo",
+    "vacation-rental",
+    "ai-agent",
+    "claude",
+    "claude-code",
+    "openclaw",
+    "pms",
+    "hospitality",
+    "real-estate",
+    "automation"
   ],
   "author": "DLJ Properties",
   "license": "MIT",

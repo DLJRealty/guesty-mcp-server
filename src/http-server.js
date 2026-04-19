@@ -5,9 +5,23 @@
  */
 import express from "express";
 import { randomUUID } from "crypto";
+import iotRouter from "./iot-webhook.js";
+import iotReceiverRouter from "./webhook/iot-receiver.js";
+import { initDB } from "./iot-db.js";
 
 const app = express();
 app.use(express.json());
+
+// Initialize IoT database and mount webhook routes
+initDB();
+app.use(iotRouter);
+
+// Enterprise Tier — inbound IoT event receiver (stub).
+// Mounted on the same app so hosted deployments can accept events at
+// /webhook/iot/:property_id. For local dev, the standalone boot file
+// src/webhook/iot-receiver-server.js exposes the same router on
+// IOT_WEBHOOK_PORT (default 3100).
+app.use(iotReceiverRouter);
 
 const PORT = process.env.PORT || 3001;
 
@@ -23,8 +37,8 @@ app.use((req, res, next) => {
 // Server info
 const SERVER_INFO = {
   name: "guesty-mcp-server",
-  version: "0.4.3",
-  description: "The first MCP server for Guesty property management. 38 tools for reservations, guests, messaging, pricing, financials, calendars, reviews, tasks, and webhooks.",
+  version: "0.7.0",
+  description: "MCP server for Guesty property management. 42 tools including IoT monitoring, property health scores, and checkout photo analysis.",
   capabilities: {
     tools: { listChanged: false },
     resources: { listChanged: false }

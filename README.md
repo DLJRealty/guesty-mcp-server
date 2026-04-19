@@ -5,7 +5,7 @@
 
 The first MCP (Model Context Protocol) server for [Guesty](https://guesty.com) property management. Connect AI agents directly to your Guesty account to manage reservations, communicate with guests, track finances, and update pricing -- all autonomously.
 
-**38 tools** covering reservations, listings, guests, messaging, financials, tasks, calendars, webhooks, pricing, and more.
+**43 tools** covering reservations, listings, guests, messaging, financials, tasks, calendars, webhooks, and pricing — plus **1 IoT tool** (`get_readiness_score`) and **3 Enterprise-tier aggregators** (`get_property_health`, `submit_checkout_photos`, `get_maintenance_alerts`) for property health aggregation, checkout photo intake, and portfolio maintenance alerts.
 
 > **Want AI to handle your guest messages 24/7?** [Guesty Copilot](https://guestycopilot.com) -- AI guest management for Guesty hosts, built on this MCP server. Now in beta.
 
@@ -41,7 +41,7 @@ Or add to your Claude Code settings (`~/.claude/settings.json`):
 3. Create an API application with `open-api` scope
 4. Copy your **Client ID** and **Client Secret**
 
-## All 38 Tools
+## All 43 Tools
 
 ### Reservations & Guests
 | Tool | Description |
@@ -105,6 +105,15 @@ Or add to your Claude Code settings (`~/.claude/settings.json`):
 | `get_custom_fields` | Fetch custom fields for listings or reservations |
 | `get_account_info` | Get account info and subscription details |
 
+### Enterprise Tier
+| Tool | Description |
+|------|-------------|
+| `get_property_health` | Aggregate health signal per property: reservation status, open maintenance alerts, review-score, last-clean timestamp, IoT hub status |
+| `submit_checkout_photos` | Accept post-checkout photo uploads and log them to the property's maintenance/cleaning record |
+| `get_maintenance_alerts` | List or filter open maintenance alerts for a property or portfolio |
+
+Requires `GUESTY_MCP_LICENSE_KEY` with an Enterprise key (`gmcp_ent_*`). See [pricing](https://guestycopilot.com/pricing).
+
 ## Use Cases
 
 - **Guest Communication**: AI agents auto-respond to guest inquiries using real reservation data
@@ -118,6 +127,14 @@ Or add to your Claude Code settings (`~/.claude/settings.json`):
 - Node.js 18+
 - Guesty account with API access (Professional plan or higher)
 - MCP-compatible AI client (Claude Code, Cursor, Windsurf, etc.)
+
+## Environment Variables
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `GUESTY_CLIENT_ID` | — | OAuth2 client id (required) |
+| `GUESTY_CLIENT_SECRET` | — | OAuth2 client secret (required) |
+| `IOT_WEBHOOK_PORT` | `3100` | Port for the Enterprise-tier IoT webhook receiver stub (`src/webhook/iot-receiver-server.js`). Local/reverse-proxy only — do not expose publicly. Production requires a reverse proxy that terminates TLS and enforces real HMAC against `IOT_WEBHOOK_SECRET`. |
 
 ## API Reference
 

@@ -3,6 +3,9 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { getTier, getTierInfo, gatedHandler, FREE_TOOLS } from './license.js';
+import { registerIoTTools } from './iot-tools.js';
+import { registerEnterpriseTools } from './enterprise-tools.js';
+import { initDB } from './iot-db.js';
 
 // Guesty API Configuration
 const GUESTY_CLIENT_ID = process.env.GUESTY_CLIENT_ID;
@@ -39,7 +42,7 @@ async function getToken() {
   return cachedToken;
 }
 
-async function guestyGet(path, params = {}, retries = 2) {
+export async function guestyGet(path, params = {}, retries = 2) {
   const token = await getToken();
   const url = new URL(`${GUESTY_API_BASE}${path}`);
   Object.entries(params).forEach(([k, v]) => {
@@ -125,7 +128,7 @@ async function guestyDelete(path, retries = 2) {
 // Create MCP Server
 const server = new McpServer({
   name: "guesty-mcp-server",
-  version: "0.5.0",
+  version: "0.7.0",
 });
 // License tier check
 const _tier = getTier();
@@ -1412,6 +1415,16 @@ server.tool(
     return { content: [{ type: "text", text: JSON.stringify(info, null, 2) }] };
   }
 );
+
+// Initialize IoT database and register Enterprise-tier tools.
+// After the 2026-04-17 MERGE:
+//   - iot-tools.js registers `get_readiness_score` only (1 tool).
+//   - enterprise-tools.js registers the 3 aggregator tools
+//     (get_property_health, submit_checkout_photos, get_maintenance_alerts)
+//     which wrap the extracted IoT helpers + Guesty-layer data.
+initDB();
+registerIoTTools(server);
+registerEnterpriseTools(server);
 
 // Start server
 const transport = new StdioServerTransport();

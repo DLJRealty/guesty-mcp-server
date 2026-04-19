@@ -2,6 +2,80 @@
 
 All notable changes to the Guesty MCP Server will be documented in this file.
 
+## [0.8.1] - 2026-04-19
+
+### Fixed
+- Added `.npmignore` to exclude token files, tests, and non-essential markdown from npm package
+- Added `.mcpregistry_*` patterns to `.gitignore` (credential hygiene)
+- Package size reduced from 42.3kB to 35.0kB (26→23 files)
+
+## [0.8.0] - 2026-04-17
+
+### Changed — Enterprise Tier MVP Merge (Owner-approved option-c path, msg 6406)
+- Enterprise aggregators (`get_property_health`, `submit_checkout_photos`,
+  `get_maintenance_alerts`) now layer Guesty-side data (reservation status,
+  review score, last-clean timestamp) on top of IoT helpers. Single-call
+  snapshots for ops dashboards.
+- IoT-only handlers extracted from `iot-tools.js` to internal async helpers
+  (`getIoTPropertyHealth`, `submitIoTCheckoutPhotos`, `getIoTMaintenanceAlerts`);
+  canonical MCP tool registration moved to `enterprise-tools.js`.
+- Graceful degradation: Guesty sub-fetch failures degrade to null value +
+  per-field error note (aggregator still returns IoT data).
+- `iot-tools.js` retains single MCP registration for `get_readiness_score`.
+- Tool count reconciled across README + license.js + package.json + server.json
+  to 43 total (39 Guesty + 1 IoT + 3 Enterprise aggregators). Previous 3-way
+  drift (README:38, license.js:38, actual registrations:43) resolved.
+
+### Added
+- `__handlers` export on `enterprise-tools.js` for direct smoke-test invocation
+  (renamed from legacy `__stubs` — real handlers, not stubs, post-merge).
+- `tests/test-enterprise.js` rewritten: exports + free-tier-gate + enterprise-lift
+  smoke tests. Dynamic import + env-stub so test runs without real Guesty creds.
+
+### Fixed
+- `package.json` test script referenced non-existent `tests/test-tools.js`.
+  Now runs `tests/test-enterprise.js && tests/test-iot.js`.
+
+## [0.7.0] - 2026-04-15
+
+### Added
+- **IoT/Property Health Monitoring** (Enterprise tier)
+  - `get_property_health` — Real-time device status for any property
+  - `submit_checkout_photos` — Photo submission for post-checkout analysis
+  - `get_maintenance_alerts` — Active IoT alerts filtered by property/severity
+  - `get_readiness_score` — 0-100 Physical Readiness Score with 6 weighted checks
+- **IoT Webhook Receiver** (`POST /webhooks/iot`)
+  - Supports Tuya, Google Nest, SmartThings, and generic payloads
+  - Auto-normalizes all formats to standard schema
+  - Auto-creates alerts for out-of-range readings
+- **IoT Data Layer** (`iot-db.js`)
+  - Zero-dependency JSON file store for devices, readings, alerts, baselines
+  - Auto-pruning at 50K readings and 10K alerts
+- Tool count: 38 → 42 (4 new Enterprise-tier tools)
+
+## [0.6.0] - 2026-04-10
+
+### Added
+- **License tier gating** — 3-tier monetization (Free/Pro/Business/Enterprise)
+  - 23 free tools (read-only operations)
+  - 15 gated tools (write operations, messaging, webhooks)
+  - License key validation via `GUESTY_MCP_LICENSE_KEY` env var
+- **MCP annotations** on all 38 tools (`readOnlyHint`, `destructiveHint`)
+- **Enhanced rate limiting** with exponential backoff and retry-after header support
+- Streamable HTTP remote endpoint via Vercel deployment
+- License key environment variable documented in server.json
+
+### Changed
+- Upgraded from v0.5.0 monetization foundation to production-ready gating
+- Improved server.json with full environment variable documentation
+- Version bumped across all entry points (server.js, http-server.js, cli.js)
+
+## [0.5.0] - 2026-04-07
+
+### Added
+- License tier system (`src/license.js`) for Pro/Business/Enterprise gating
+- MCP annotations on all 38 tools for better client-side filtering
+
 ## [0.4.3] - 2026-03-27
 
 ### Changed

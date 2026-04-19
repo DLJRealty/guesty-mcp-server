@@ -84,7 +84,10 @@ function isToolAllowed(toolName) {
 
 function getTierInfo() {
   const tier = getTier();
-  const totalTools = 38;
+  // 39 Guesty core tools + 1 IoT (get_readiness_score) + 3 Enterprise aggregators
+  // (get_property_health, submit_checkout_photos, get_maintenance_alerts) = 43.
+  // Updated 2026-04-17 for Enterprise Tier MVP merge (Owner msg 6406).
+  const totalTools = 43;
   return {
     tier,
     hasKey: !!process.env.GUESTY_MCP_LICENSE_KEY,
@@ -101,7 +104,7 @@ function gatedHandler(toolName, handler) {
                   "Free tier includes " + FREE_TOOLS.length + " operations and data tools. " +
                   "Guest messaging, review responses, and write operations require Pro+. " +
                   "Upgrade at https://guestycopilot.com/pricing -- " +
-                  "Set GUESTY_MCP_LICENSE_KEY env var to unlock all 38 tools.";
+                  "Set GUESTY_MCP_LICENSE_KEY env var to unlock all 43 tools.";
       return {
         content: [{ type: "text", text: msg }],
         isError: true,

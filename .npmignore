@@ -1,0 +1,15 @@
+tests/
+*.md
+!README.md
+!CHANGELOG.md
+!LICENSE
+.github/
+.gitignore
+docker-compose.yml
+Dockerfile
+.mcpregistry_*
+.env
+.env.*
+*.token
+credentials*
+tripadvisor-partnership-email.md
