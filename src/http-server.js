@@ -5,23 +5,24 @@
  */
 import express from "express";
 import { randomUUID } from "crypto";
-import iotRouter from "./iot-webhook.js";
-import iotReceiverRouter from "./webhook/iot-receiver.js";
-import { initDB } from "./iot-db.js";
 
 const app = express();
 app.use(express.json());
 
-// Initialize IoT database and mount webhook routes
-initDB();
-app.use(iotRouter);
-
-// Enterprise Tier — inbound IoT event receiver (stub).
-// Mounted on the same app so hosted deployments can accept events at
-// /webhook/iot/:property_id. For local dev, the standalone boot file
-// src/webhook/iot-receiver-server.js exposes the same router on
-// IOT_WEBHOOK_PORT (default 3100).
-app.use(iotReceiverRouter);
+// IoT routes require filesystem for JSON DB — skip on Vercel serverless
+// (Vercel has read-only /tmp only; initDB() writes to ~/.dlj-scripts/data/)
+if (!process.env.VERCEL) {
+  try {
+    const { default: iotRouter } = await import("./iot-webhook.js");
+    const { default: iotReceiverRouter } = await import("./webhook/iot-receiver.js");
+    const { initDB } = await import("./iot-db.js");
+    initDB();
+    app.use(iotRouter);
+    app.use(iotReceiverRouter);
+  } catch (e) {
+    console.warn("[http-server] IoT routes skipped:", e.message);
+  }
+}
 
 const PORT = process.env.PORT || 3001;
 
@@ -37,8 +38,8 @@ app.use((req, res, next) => {
 // Server info
 const SERVER_INFO = {
   name: "guesty-mcp-server",
-  version: "0.7.0",
-  description: "MCP server for Guesty property management. 42 tools including IoT monitoring, property health scores, and checkout photo analysis.",
+  version: "0.8.2",
+  description: "MCP server for Guesty property management — 43 production tools covering reservations, guests, messaging, pricing, revenue, tasks, webhooks, and IoT/property-health Enterprise tier.",
   capabilities: {
     tools: { listChanged: false },
     resources: { listChanged: false }
@@ -60,7 +61,9 @@ const TOOLS = [
   "list_listing_photos", "get_listing_availability",
   "check_in_guest", "check_out_guest",
   "list_cleaning_tasks", "assign_cleaning_task",
-  "get_revenue_report", "get_occupancy_report", "get_channel_distribution"
+  "get_revenue_report", "get_occupancy_report", "get_channel_distribution",
+  // Enterprise tier (IoT / property health)
+  "get_property_health", "submit_checkout_photos", "get_maintenance_alerts", "get_readiness_score"
 ];
 
 // Health
