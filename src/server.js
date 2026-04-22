@@ -5,6 +5,7 @@ import { z } from "zod";
 import { getTier, getTierInfo, gatedHandler, FREE_TOOLS } from './license.js';
 import { registerIoTTools } from './iot-tools.js';
 import { registerEnterpriseTools } from './enterprise-tools.js';
+import { registerResources } from './resources.js';
 import { initDB } from './iot-db.js';
 
 // Guesty API Configuration
@@ -40,6 +41,33 @@ async function getToken() {
   cachedToken = data.access_token;
   tokenExpiry = Date.now() + (data.expires_in - 60) * 1000;
   return cachedToken;
+}
+
+// ISSUE_1_FIX (2026-04-22 CTO): shared filter builder for /reservations queries.
+// Guesty Open API v1 ignores `checkIn[$gte]`/`checkIn[$lte]` bracket-style
+// query params — it requires a JSON `filters=[{field,operator,from,to}]` array.
+// When filters are present, `listingId` is ALSO ignored as a top-level param
+// and must move *inside* the filter array. No `context:"now"` — that scopes
+// results to upcoming-only (the bug abada1987 reported in Issue #1).
+export function buildReservationFilters({ listingId, checkInFrom, checkInTo, checkOutFrom, checkOutTo, status } = {}) {
+  const filters = [];
+  if (listingId) filters.push({ field: "listingId", operator: "$eq", value: listingId });
+  if (status) filters.push({ field: "status", operator: "$eq", value: status });
+  if (checkInFrom && checkInTo) {
+    filters.push({ field: "checkIn", operator: "$between", from: checkInFrom, to: checkInTo });
+  } else if (checkInFrom) {
+    filters.push({ field: "checkIn", operator: "$gte", value: checkInFrom });
+  } else if (checkInTo) {
+    filters.push({ field: "checkIn", operator: "$lte", value: checkInTo });
+  }
+  if (checkOutFrom && checkOutTo) {
+    filters.push({ field: "checkOut", operator: "$between", from: checkOutFrom, to: checkOutTo });
+  } else if (checkOutFrom) {
+    filters.push({ field: "checkOut", operator: "$gte", value: checkOutFrom });
+  } else if (checkOutTo) {
+    filters.push({ field: "checkOut", operator: "$lte", value: checkOutTo });
+  }
+  return filters;
 }
 
 export async function guestyGet(path, params = {}, retries = 2) {
@@ -128,7 +156,7 @@ async function guestyDelete(path, retries = 2) {
 // Create MCP Server
 const server = new McpServer({
   name: "guesty-mcp-server",
-  version: "0.7.0",
+  version: "0.9.1",
 });
 // License tier check
 const _tier = getTier();
@@ -157,12 +185,14 @@ server.tool(
       sort: "checkIn",
       order: "desc",
     };
-    if (params.checkInFrom) queryParams["checkIn[$gte]"] = params.checkInFrom;
-    if (params.checkInTo) queryParams["checkIn[$lte]"] = params.checkInTo;
-    if (params.checkOutFrom) queryParams["checkOut[$gte]"] = params.checkOutFrom;
-    if (params.checkOutTo) queryParams["checkOut[$lte]"] = params.checkOutTo;
-    if (params.listingId) queryParams.listingId = params.listingId;
-    if (params.status) queryParams.status = params.status;
+    // ISSUE_1_FIX (2026-04-22): use Open API `filters` JSON array instead of
+    // `checkIn[$gte]`/`[$lte]` bracket params (silently ignored → upcoming-only).
+    const filters = buildReservationFilters(params);
+    if (filters.length > 0) {
+      queryParams.filters = JSON.stringify(filters);
+    } else if (params.listingId) {
+      queryParams.listingId = params.listingId;
+    }
 
     const data = await guestyGet("/reservations", queryParams);
 
@@ -297,9 +327,18 @@ server.tool(
       sort: "checkIn",
       order: "desc",
     };
-    if (params.listingId) queryParams.listingId = params.listingId;
-    if (params.from) queryParams["checkIn[$gte]"] = params.from;
-    if (params.to) queryParams["checkIn[$lte]"] = params.to;
+    // ISSUE_1_FIX (2026-04-22): filters array for historical windows
+    // (bracket-style params were silently ignored → upcoming-only).
+    const filters = buildReservationFilters({
+      listingId: params.listingId,
+      checkInFrom: params.from,
+      checkInTo: params.to,
+    });
+    if (filters.length > 0) {
+      queryParams.filters = JSON.stringify(filters);
+    } else if (params.listingId) {
+      queryParams.listingId = params.listingId;
+    }
 
     const data = await guestyGet("/reservations", queryParams);
     const financials = (data.results || []).map((r) => ({
@@ -538,12 +577,18 @@ server.tool(
     if (params.to) queryParams["to"] = params.to;
 
     // Owner statements not available via Open API v1 — fall back to financial data from reservations
+    // ISSUE_1_FIX (2026-04-22): same bracket→filters rewrite as Issue #1 sibling tools.
+    const ownerFilters = buildReservationFilters({
+      listingId: params.listingId,
+      checkInFrom: params.from,
+      checkInTo: params.to,
+    });
     const resData = await guestyGet("/reservations", {
       limit: params.limit,
       fields: "money guest checkIn checkOut listing status nightsCount",
-      ...(params.listingId && { listingId: params.listingId }),
-      ...(params.from && { "checkIn[$gte]": params.from }),
-      ...(params.to && { "checkIn[$lte]": params.to }),
+      ...(ownerFilters.length > 0
+        ? { filters: JSON.stringify(ownerFilters) }
+        : (params.listingId ? { listingId: params.listingId } : {})),
     });
     const results = (resData.results || []).map((r) => ({
       guest: r.guest?.fullName || "Unknown",
@@ -1055,20 +1100,76 @@ server.tool(
   },
   { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async (params) => {
+    // ISSUE_1_FIX (2026-04-22): Open API calendar returns the day array under
+    // `data.days`, `data.data`, `data.results`, or as a bare top-level array
+    // depending on endpoint variant. Previous code only looked at `data.days`
+    // → totalDays:0 when response came back in any other shape (the bug
+    // abada1987 flagged as "all-zero totals" in Issue #1).
+    // Also: pass both `from`/`to` and `startDate`/`endDate` to be forgiving
+    // across Open API v1 calendar route versions.
     const data = await guestyGet(`/listings/${params.listingId}/calendar`, {
       from: params.from,
       to: params.to,
+      startDate: params.from,
+      endDate: params.to,
     });
 
-    const days = data.days || [];
+    // Normalize response shape across known Guesty calendar variants
+    let days = [];
+    if (Array.isArray(data)) days = data;
+    else if (Array.isArray(data?.days)) days = data.days;
+    else if (Array.isArray(data?.data)) days = data.data;
+    else if (Array.isArray(data?.results)) days = data.results;
+
+    // If the calendar endpoint didn't give us per-day rows, derive occupancy
+    // from reservations over the window so we never silently return 0.
+    if (days.length === 0 && params.from && params.to) {
+      const occupFilters = buildReservationFilters({
+        listingId: params.listingId,
+        checkInFrom: params.from,
+        checkInTo: params.to,
+      });
+      try {
+        const resData = await guestyGet("/reservations", {
+          limit: 100,
+          fields: "checkIn checkOut nightsCount status",
+          filters: JSON.stringify(occupFilters),
+        });
+        const totalDaysSpan = Math.max(1, Math.round((new Date(params.to) - new Date(params.from)) / 86400000) + 1);
+        const bookedDays = (resData.results || [])
+          .filter((r) => r.status === "confirmed" || r.status === "reserved")
+          .reduce((s, r) => s + (r.nightsCount || 0), 0);
+        const rate = Math.round((bookedDays / totalDaysSpan) * 10000) / 100;
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              listing: params.listingId,
+              from: params.from,
+              to: params.to,
+              totalDays: totalDaysSpan,
+              bookedDays,
+              blockedDays: 0,
+              availableDays: Math.max(0, totalDaysSpan - bookedDays),
+              occupancyRate: `${rate}%`,
+              source: "reservations-derived",
+            }, null, 2),
+          }],
+        };
+      } catch (e) {
+        // fall through to zero-day response
+      }
+    }
+
     const totalDays = days.length;
     let bookedDays = 0;
     let blockedDays = 0;
     let availableDays = 0;
 
     days.forEach((d) => {
-      if (d.status === "booked" || d.status === "reserved") bookedDays++;
-      else if (d.status === "unavailable" || d.status === "blocked") blockedDays++;
+      const s = d.status || d.state;
+      if (s === "booked" || s === "reserved") bookedDays++;
+      else if (s === "unavailable" || s === "blocked") blockedDays++;
       else availableDays++;
     });
 
@@ -1108,11 +1209,23 @@ server.tool(
       fields: "money nightsCount listing checkIn checkOut status",
       sort: "checkIn",
       order: "desc",
-      status: "confirmed",
     };
-    if (params.listingId) queryParams.listingId = params.listingId;
-    if (params.from) queryParams["checkIn[$gte]"] = params.from;
-    if (params.to) queryParams["checkIn[$lte]"] = params.to;
+    // ISSUE_1_FIX (2026-04-22): filters array for historical windows.
+    // `status: "confirmed"` moved into filters so it survives alongside
+    // listingId + date window (top-level status was silently dropped when
+    // filters were later set on other paths).
+    const filters = buildReservationFilters({
+      listingId: params.listingId,
+      checkInFrom: params.from,
+      checkInTo: params.to,
+      status: "confirmed",
+    });
+    if (filters.length > 0) {
+      queryParams.filters = JSON.stringify(filters);
+    } else {
+      queryParams.status = "confirmed";
+      if (params.listingId) queryParams.listingId = params.listingId;
+    }
 
     const data = await guestyGet("/reservations", queryParams);
     const reservations = data.results || [];
@@ -1425,6 +1538,7 @@ server.tool(
 initDB();
 registerIoTTools(server);
 registerEnterpriseTools(server);
+registerResources(server, { guestyGet });
 
 // Start server
 const transport = new StdioServerTransport();

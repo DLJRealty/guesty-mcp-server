@@ -2,6 +2,16 @@
 
 All notable changes to the Guesty MCP Server will be documented in this file.
 
+## [0.9.1] - 2026-04-22
+
+### Fixed
+- **Issue #1** — `get_reservations`, `get_revenue_summary`, `get_financials`, and `get_owner_statements` silently ignored `checkInFrom`/`checkInTo`/`from`/`to` date params, returning only upcoming reservations regardless of the requested window. Root cause: `checkIn[$gte]` / `checkIn[$lte]` bracket-style query params are not honored by the Guesty Open API v1. New `buildReservationFilters()` helper emits the correct `filters=[{field, operator, from, to}]` JSON-array shape and moves `listingId` + `status` inside the array so they survive alongside date windows. No `context:"now"` scoping (the original upcoming-only culprit).
+- **Issue #1** — `get_listing_occupancy` returned `totalDays: 0` because the calendar response shape wasn't mapped defensively. Now normalizes across `days` / `data` / `results` / bare-array variants, and falls back to a reservation-derived occupancy calculation when the calendar endpoint returns no per-day rows.
+
+### Added
+- MCP Resources primitive — 7 addressable `guesty://` templates (listing, reservation, review, guest, thread, report-revenue, listing-tasks) wired via `src/resources.js`. Capabilities now advertise `tools` + `resources` (server-side half of the 0.9.0 ship that was deployed 2026-04-20 but not previously committed).
+- `tests/test-issue-1-filters.mjs` — 8-case offline regression covering filter-builder output for historical windows, listing scoping, checkout bounds, and `context:"now"` leak detection.
+
 ## [0.8.2] - 2026-04-19
 
 ### Fixed
