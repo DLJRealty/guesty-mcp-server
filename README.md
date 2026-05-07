@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/dljrealty-guesty-mcp-server-badge.png)](https://mseep.ai/app/dljrealty-guesty-mcp-server)
+
 # Guesty MCP Server
 
 [![npm version](https://img.shields.io/npm/v/guesty-mcp-server)](https://www.npmjs.com/package/guesty-mcp-server)
