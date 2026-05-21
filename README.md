@@ -11,6 +11,8 @@ The first MCP (Model Context Protocol) server for [Guesty](https://guesty.com) p
 
 > **Stay updated:** [Sign up for release notes and new tool announcements](https://guestycopilot.com#signup)
 
+> **v0.9.2 (2026-05-21) — Paid tiers launching v1.0 next week.** Free tier (23 read-only tools) is fully functional now: reservations, listings, guests, calendars, financial reports, operations, reviews, and webhook reads. Write operations (create/update/delete) and the full 43-tool surface ship in v1.0 with Stripe-backed paid-tier activation. Until then, paid-tier license keys return a `NOT YET WIRED — PAID TIERS LAUNCH v1.0` refusal — set or omit `GUESTY_MCP_LICENSE_KEY` to use the free tier.
+
 ## Quick Start
 
 ```bash
