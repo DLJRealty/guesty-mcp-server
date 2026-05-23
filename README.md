@@ -3,9 +3,15 @@
 [![npm version](https://img.shields.io/npm/v/guesty-mcp-server)](https://www.npmjs.com/package/guesty-mcp-server)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-The first MCP (Model Context Protocol) server for [Guesty](https://guesty.com) property management. Connect AI agents directly to your Guesty account to manage reservations, communicate with guests, track finances, and update pricing -- all autonomously.
+The first MCP (Model Context Protocol) server for [Guesty](https://guesty.com) property management. Connect any MCP-compatible AI client (Claude, ChatGPT, Copilot, Cline) to your Guesty account — manage reservations, communicate with guests, track finances, update pricing.
 
-**43 tools** covering reservations, listings, guests, messaging, financials, tasks, calendars, webhooks, and pricing — plus **1 IoT tool** (`get_readiness_score`) and **3 Enterprise-tier aggregators** (`get_property_health`, `submit_checkout_photos`, `get_maintenance_alerts`) for property health aggregation, checkout photo intake, and portfolio maintenance alerts.
+**Just shipped v0.9.3 (2026-05-23):** 23 free read-only tools — reservations, listings, guests, calendars, financial reports, operations, reviews, and webhook reads — live now. The full 43-tool surface (write/destructive ops + webhook management) ships behind a paid tier in v1.0 next week.
+
+**Why MCP:** Guesty is one of the larger PMS platforms in the short-term-rental space and no MCP integration existed. Every major PMS will need one — we built the first.
+
+**Built in production** on 8 of our own short-term rentals. Node.js + MCP SDK + Express, MIT licensed. Things we learned: Guesty's `/reservations` endpoint only returns future data (we use the calendar endpoint for historical), and the SSE transport doesn't run on Vercel serverless (expected). **2,112 lifetime npm downloads, 676 in the last 30 days.**
+
+Full tool surface: **43 tools** across reservations, listings, guests, messaging, financials, tasks, calendars, webhooks, and pricing — plus **1 IoT tool** (`get_readiness_score`) and **3 Enterprise-tier aggregators** (`get_property_health`, `submit_checkout_photos`, `get_maintenance_alerts`).
 
 > **Want AI to handle your guest messages 24/7?** [Guesty Copilot](https://guestycopilot.com) -- AI guest management for Guesty hosts, built on this MCP server. Now in beta.
 
