@@ -5,19 +5,19 @@
 
 The first MCP (Model Context Protocol) server for [Guesty](https://guesty.com) property management. Connect any MCP-compatible AI client (Claude, ChatGPT, Copilot, Cline) to your Guesty account — manage reservations, communicate with guests, track finances, update pricing.
 
-**Just shipped v0.9.3 (2026-05-23):** 23 free read-only tools — reservations, listings, guests, calendars, financial reports, operations, reviews, and webhook reads — live now. The full 43-tool surface (write/destructive ops + webhook management) ships behind a paid tier in v1.0 next week.
+**Just shipped v0.9.5:** 23 free read-only tools — reservations, listings, guests, calendars, financial reports, operations, reviews, and webhook reads — live now. The full 43-tool surface (write/destructive ops + webhook management) ships behind a paid tier in v1.0 next week.
 
 **Why MCP:** Guesty is one of the larger PMS platforms in the short-term-rental space and no MCP integration existed. Every major PMS will need one — we built the first.
 
-**Built in production** on 8 of our own short-term rentals. Node.js + MCP SDK + Express, MIT licensed. Things we learned: Guesty's `/reservations` endpoint only returns future data (we use the calendar endpoint for historical), and the SSE transport doesn't run on Vercel serverless (expected). **2,112 lifetime npm downloads, 676 in the last 30 days.**
+**Built in production** on 10 of our own short-term rentals. Node.js + MCP SDK + Express, MIT licensed. Things we learned: Guesty's `/reservations` endpoint only returns future data (we use the calendar endpoint for historical), and the SSE transport doesn't run on Vercel serverless (expected). **The first and only MCP server for Guesty — 23 free read-only tools live now.**
 
-Full tool surface: **43 tools** across reservations, listings, guests, messaging, financials, tasks, calendars, webhooks, and pricing — plus **1 IoT tool** (`get_readiness_score`) and **3 Enterprise-tier aggregators** (`get_property_health`, `submit_checkout_photos`, `get_maintenance_alerts`).
+Full tool surface: **43 tools total** — 23 free read-only tools live now; the full **39-tool Pro** tier (adds 16 write/guest-messaging tools) and a **4-tool Enterprise IoT** add-on (`get_readiness_score`, `get_property_health`, `submit_checkout_photos`, `get_maintenance_alerts`) unlock at v1.0.
 
 > **Want AI to handle your guest messages 24/7?** [Guesty Copilot](https://guestycopilot.com) -- AI guest management for Guesty hosts, built on this MCP server. Now in beta.
 
 > **Stay updated:** [Sign up for release notes and new tool announcements](https://guestycopilot.com#signup)
 
-> **v0.9.2 (2026-05-21) — Paid tiers launching v1.0 next week.** Free tier (23 read-only tools) is fully functional now: reservations, listings, guests, calendars, financial reports, operations, reviews, and webhook reads. Write operations (create/update/delete) and the full 43-tool surface ship in v1.0 with Stripe-backed paid-tier activation. Until then, paid-tier license keys return a `NOT YET WIRED — PAID TIERS LAUNCH v1.0` refusal — set or omit `GUESTY_MCP_LICENSE_KEY` to use the free tier.
+> **v0.9.5 — Paid tiers launching v1.0.** 23 free read-only tools live now: reservations, listings, guests, calendars, financial reports, operations, reviews, and webhook reads. 39-tool Pro + 4-tool Enterprise IoT unlock at v1.0 with Stripe-backed activation. Until then, paid-tier license keys return a `NOT YET WIRED — PAID TIERS LAUNCH v1.0` refusal — set or omit `GUESTY_MCP_LICENSE_KEY` to use the free tier.
 
 ## Quick Start
 
@@ -124,11 +124,11 @@ Requires `GUESTY_MCP_LICENSE_KEY` with an Enterprise key (`gmcp_ent_*`). See [pr
 
 ## Use Cases
 
-- **Guest Communication**: AI agents auto-respond to guest inquiries using real reservation data
+- **Guest Communication**: guest-messaging tools draft and send replies grounded in real reservation data
 - **Revenue Management**: Pull financial reports, analyze occupancy, optimize pricing
 - **Operations**: Track check-ins/outs, coordinate cleaning schedules, manage availability
 - **Marketing**: Identify low-occupancy periods, create targeted promotions
-- **Multi-Agent Teams**: Give your entire AI team access to property data
+- **Connected Tools**: give every MCP-compatible client in your stack access to the same property data
 
 ## Requirements
 
@@ -150,7 +150,7 @@ This server wraps the [Guesty Open API](https://open-api.guesty.com/api-docs). A
 
 ## Built By
 
-[DLJ Properties](https://tinyhomeboutiques.com) -- Running 7 properties with a fully autonomous AI agent team. Built for our own use, shared with the STR community.
+[DLJ Properties](https://tinyhomeboutiques.com) -- Battle-tested on our own 10-property STR portfolio. Built for our own use, shared with the STR community.
 
 ## License
 
