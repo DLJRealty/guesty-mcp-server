@@ -5,7 +5,7 @@
 
 The first MCP (Model Context Protocol) server for [Guesty](https://guesty.com) property management. Connect any MCP-compatible AI client (Claude, ChatGPT, Copilot, Cline) to your Guesty account — manage reservations, communicate with guests, track finances, update pricing.
 
-**Just shipped v0.9.5:** 23 free read-only tools — reservations, listings, guests, calendars, financial reports, operations, reviews, and webhook reads — live now. The full 43-tool surface (write/destructive ops + webhook management) ships behind a paid tier in v1.0 next week.
+**Live now:** 23 free read-only tools — reservations, listings, guests, calendars, financial reports, operations, reviews, and webhook reads. The full 43-tool surface (write/destructive ops + webhook management) is planned behind a paid tier; availability will be announced in the release notes.
 
 **Why MCP:** Guesty is one of the larger PMS platforms in the short-term-rental space and no MCP integration existed. Every major PMS will need one — we built the first.
 
@@ -17,7 +17,7 @@ Full tool surface: **43 tools total** — 23 free read-only tools live now; the 
 
 > **Stay updated:** [Sign up for release notes and new tool announcements](https://guestycopilot.com#signup)
 
-> **v0.9.5 — Paid tiers launching v1.0.** 23 free read-only tools live now: reservations, listings, guests, calendars, financial reports, operations, reviews, and webhook reads. 39-tool Pro + 4-tool Enterprise IoT unlock at v1.0 with Stripe-backed activation. Until then, paid-tier license keys return a `NOT YET WIRED — PAID TIERS LAUNCH v1.0` refusal — set or omit `GUESTY_MCP_LICENSE_KEY` to use the free tier.
+> **Paid tiers are not yet available.** 23 free read-only tools are live now: reservations, listings, guests, calendars, financial reports, operations, reviews, and webhook reads. There is no license key to buy or enter yet, and the free tier needs none. Paid-tier license keys are recognized but refused with a message saying paid tiers are not yet available — set or omit `GUESTY_MCP_LICENSE_KEY` and you get the free tier either way.
 
 ## Quick Start
 
@@ -116,11 +116,12 @@ Or add to your Claude Code settings (`~/.claude/settings.json`):
 ### Enterprise Tier
 | Tool | Description |
 |------|-------------|
+| `get_readiness_score` | Composite turnover-readiness score for a property from cleaning, maintenance, and IoT signals |
 | `get_property_health` | Aggregate health signal per property: reservation status, open maintenance alerts, review-score, last-clean timestamp, IoT hub status |
 | `submit_checkout_photos` | Accept post-checkout photo uploads and log them to the property's maintenance/cleaning record |
 | `get_maintenance_alerts` | List or filter open maintenance alerts for a property or portfolio |
 
-Requires `GUESTY_MCP_LICENSE_KEY` with an Enterprise key (`gmcp_ent_*`). See [pricing](https://guestycopilot.com/pricing).
+These four tools are gated to the Enterprise tier. Paid tiers are not yet available, so they cannot be unlocked today — they are documented here for completeness. Availability will be announced in the release notes.
 
 ## Use Cases
 

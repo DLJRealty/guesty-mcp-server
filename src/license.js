@@ -1,22 +1,23 @@
 /**
  * Guesty MCP Server — License Key System (v2)
  *
- * v0.9.2 (2026-05-21): PAID_TIERS_LIVE=false. Paid-tier prefix keys
+ * PAID_TIERS_LIVE=false. Paid-tier prefix keys
  *   (gmcp_pro_*, gmcp_biz_*, gmcp_ent_*, test_pro/biz/ent) are recognized
- *   but tool access is REFUSED with "NOT YET WIRED — PAID TIERS LAUNCH v1.0"
- *   message until v1.0 ships Stripe-backed activation. Free tier
- *   (23 read-only tools) is fully functional and unchanged. Closes the
- *   prefix-match self-mint exploit window for pre-launch OSS readers.
+ *   but tool access is REFUSED with PAID_TIERS_NOT_WIRED_MSG (defined below —
+ *   do not restate its text here, or this comment goes stale the moment the
+ *   copy changes). Free tier (23 read-only tools) is fully functional and
+ *   unchanged. Closes the prefix-match self-mint exploit window for
+ *   pre-launch OSS readers.
  *
  * 3-Layer Monetization Model (Danny-approved 2026-04-06):
  * - Layer 1: MCP Server = operations/data tool (FREE, lead gen)
- * - Layer 2: Guesty Copilot = SaaS platform (PAID — v1.0)
+ * - Layer 2: Guesty Copilot = SaaS platform (PAID — not yet available)
  * - Layer 3: DLJ Managed AI = premium service (our real IP)
  *
  * FREE tier: Read-only operations data — reservations, listings, calendar,
  *   financials, tasks, guest lookup, pricing, occupancy, channels, photos.
- * PRO+ tier (v1.0): Guest communication — messaging, review responses,
- *   webhook creation, reservation writes, listing updates. Stripe-backed.
+ * PRO+ tier (not yet available): Guest communication — messaging, review
+ *   responses, webhook creation, reservation writes, listing updates.
  *
  * Reads GUESTY_MCP_LICENSE_KEY from env.
  * No key or invalid key = free tier (operations data only).
@@ -24,8 +25,8 @@
  *   on any paid-tier tool call.
  */
 
-// v0.9.2 paid-tier kill-switch.
-// Flip to true ONLY when Stripe webhook + signed-key validation ships in v1.0.
+// Paid-tier kill-switch.
+// Flip to true ONLY when the payment webhook + signed-key validation ship.
 // While false: paid-prefix keys are accepted as "paid_not_yet_wired" tier,
 // which has the same tool access as free + emits a refusal message on any
 // paid-tier tool call. Prevents prefix-match self-mint exploit.
@@ -33,13 +34,21 @@ const PAID_TIERS_LIVE = false;
 
 // Verbatim refusal message — matches HN launch body and README callout.
 // Keep wording stable; HN/Marketing reference this exact string.
+//
+// REWRITTEN 2026-08-06 (v0.9.8), CEO-approved verbatim. THE DEFECT IN THE OLD
+// TEXT WAS NOT THAT IT WAS WRONG WHEN WRITTEN — IT WAS THAT IT CARRIED DATED
+// PROMISES ("v0.9.2", "v1.0 next week", "Stripe-backed") THAT DECAYED INTO A
+// LIE WHILE SITTING PERFECTLY STILL. Written 2026-05-21; by 2026-08-06 the
+// package was at 0.9.7 and "next week" was ~11 weeks stale, in front of
+// customers. This replacement names NO version, NO date, NO payment vendor
+// and NO key format, so it cannot go stale on its own. If you edit it, keep
+// that property — the shelf life of the copy is the feature, not the wording.
 const PAID_TIERS_NOT_WIRED_MSG =
-  "NOT YET WIRED — PAID TIERS LAUNCH v1.0\n\n" +
-  "The license key you provided is recognized as a paid-tier prefix, but " +
-  "paid-tier validation is not yet active in v0.9.2. Free tier (23 read-only " +
-  "tools) remains fully functional and unchanged. Paid tiers " +
-  "(Pro/Business/Enterprise) ship in v1.0 next week with full Stripe-backed " +
-  "activation. Track: https://github.com/DLJRealty/guesty-mcp-server";
+  "Free tier is live and fully functional — 23 read-only tools, no license " +
+  "key required and nothing to configure.\n\n" +
+  "Paid tiers (Pro, Business, Enterprise) are not yet available, so there is " +
+  "no key to enter yet.\n\n" +
+  "Availability will be announced in the release notes.";
 
 // Free tier: read-only operations and data tools
 const FREE_TOOLS = [
@@ -103,7 +112,7 @@ const BIZ_FEATURES = {
 // Simple key-to-tier mapping
 // v0.9.2: when PAID_TIERS_LIVE=false, any paid-prefix key resolves to
 //   "paid_not_yet_wired" — free tool access + refusal on paid tool calls.
-// v1.0 (planned): Stripe webhook + signed-key DB lookup replaces prefix match.
+// Planned: payment webhook + signed-key DB lookup replaces prefix match.
 function resolveTier(licenseKey) {
   if (!licenseKey) return "free";
   const key = licenseKey.trim();

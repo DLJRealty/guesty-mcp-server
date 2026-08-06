@@ -2,6 +2,23 @@
 
 All notable changes to the Guesty MCP Server will be documented in this file.
 
+## [0.9.8] - 2026-08-06
+
+### Fixed
+- **The paid-tier refusal message named a version and a date that had gone stale in front of customers.** A user supplying a `gmcp_pro_*` / `gmcp_biz_*` / `gmcp_ent_*` key was told paid tiers arrive "at v1.0 next week" with "Stripe-backed activation". That text was written 2026-05-21; by 2026-08-06 the package was at 0.9.7 and "next week" was ~11 weeks past. **The defect was not that the copy was wrong when written — it was that it carried dated promises that decayed into a false statement while sitting perfectly still.** The replacement names no version, no date, no payment vendor and no key format, so it cannot go stale on its own.
+- **The README instructed Enterprise-tier readers to set `GUESTY_MCP_LICENSE_KEY` to a `gmcp_ent_*` key.** The kill-switch guarantees that key is refused, so the documented remedy could not work. The same defect was removed from the tool-gate messages in 0.9.7 and survived in the shipped docs. It now states plainly that paid tiers are not yet available.
+- **The README's Enterprise table listed 3 of the 4 Enterprise tools** — `get_readiness_score` was missing, while the prose two lines above it and `ENT_TOOLS` in code both say 4.
+- README no longer quotes the refusal string byte-for-byte. **A paraphrase cannot be falsified by a copy edit; a verbatim quote can — and that coupling is exactly what broke this file.**
+
+## [0.9.7] - 2026-08-06
+
+### Changed
+- **Delisted the `remotes` entry from the MCP registry record.** It had advertised a remote endpoint since 0.6.0, and four of the five versions carrying it (0.6.0, 0.7.0, 0.8.1, 0.8.2) published the bare origin with no `/mcp` path — POSTing `initialize` there returns an HTML error page, while a control GET returns JSON, so the failure is verb-specific rather than the host being down. **Four published versions pointed at a URL that could not complete a handshake.** 0.9.6 was the first whose remote answered `initialize` correctly, but it still executes no tools. npm discovery is unaffected and always was: `packages[]` carries the npm entry on every published row independently of `remotes`. Registry rows are per-version and immutable, so removing the entry required a publish rather than an edit. The endpoint itself stays up.
+
+### Fixed
+- **The remote advertised a tool list that was 31 names wrong.** Added `tests/test-remote-toolsync.mjs`, which extracts every real registration across the source files and fails if the advertised set and the registered set diverge in either direction — including a control that injects a divergence, so a pass is interpretable rather than decorative.
+- **The Enterprise tool gate prescribed a remedy the kill-switch disables** — it told the caller to set an Enterprise key that would then be refused.
+
 ## [0.9.6] - 2026-08-06
 
 ### Fixed
