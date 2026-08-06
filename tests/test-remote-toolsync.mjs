@@ -149,6 +149,38 @@ if (GUESTY_FREE_TOOL_COUNT >= FREE_TOOLS.length) {
   fail(`published free count ${GUESTY_FREE_TOOL_COUNT} is not below the gate's access count ${FREE_TOOLS.length} -- the two ledgers have been collapsed`);
 } else ok(`ledgers still distinct: published ${GUESTY_FREE_TOOL_COUNT} < access ${FREE_TOOLS.length}`);
 
+// ---------------------------------------------------------------------------
+// 5. server.json — the MCP registry manifest. Two constraints the registry
+//    enforces server-side and NOTHING here enforced until 2026-08-06.
+//
+//    MEASURED, not hypothetical: the corrected registry description was written
+//    at 159 chars and the publish came back 422 "expected length <= 100". The
+//    limit is why the old description was terse; nobody had written it down, and
+//    server.json is JSON so it cannot carry a comment saying so. THIS IS WHERE
+//    THAT COMMENT LIVES. A constraint you can only learn from a rejected publish
+//    is a constraint that gets rediscovered once per person.
+//
+//    The version check exists because e980a9b: server.json carries the version
+//    TWICE (top level and packages[0]) and the 0.9.9 bump moved only one of them.
+// ---------------------------------------------------------------------------
+const REGISTRY_DESC_MAX = 100;
+const SRV = JSON.parse(readFileSync(join(ROOT, "server.json"), "utf8"));
+
+// Control: the predicate must reject something before its acceptance means anything.
+if (!("x".repeat(REGISTRY_DESC_MAX + 1).length > REGISTRY_DESC_MAX)) {
+  fail("CONTROL: the length predicate cannot reject an over-length string -- its PASS below is uninterpretable");
+} else ok("control: length predicate rejects an over-length string");
+
+if (!SRV.description) fail("server.json has no description -- this assertion has gone blind, fix or delete it");
+else if (SRV.description.length > REGISTRY_DESC_MAX) {
+  fail(`server.json description is ${SRV.description.length} chars; the MCP registry rejects >${REGISTRY_DESC_MAX} with a 422`);
+} else ok(`server.json description ${SRV.description.length} <= ${REGISTRY_DESC_MAX} chars`);
+
+for (const [label, v] of [["server.json version", SRV.version], ["server.json packages[0].version", SRV.packages?.[0]?.version]]) {
+  if (v !== PKG.version) fail(`${label} "${v}" != package.json "${PKG.version}"`);
+  else ok(`${label} matches package.json ${v}`);
+}
+
 console.log(failures === 0
   ? `\nPASS remote tool sync: ${realSet.size} tools, advertised set == registered set`
   : `\n${failures} FAILURE(S)`);
