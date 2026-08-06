@@ -2,6 +2,15 @@
 
 All notable changes to the Guesty MCP Server will be documented in this file.
 
+## [0.9.10] - 2026-08-06
+
+### Fixed
+- **Every published version since 0.9.1 told MCP clients it was 0.9.1.** `serverInfo.version` in the `initialize` handshake was a hardcoded string literal in `src/server.js`, last updated at 0.9.1 and untouched through eight subsequent releases. Any client that reads the version it is handed — for compatibility checks, for bug reports, for telemetry — has been reading a number that stopped moving. `package.json` was correct the whole time, which is precisely why nobody noticed: **the surface that was right is the surface everybody looks at.**
+- **The only reason this was caught is that a control FAILED TO DISCRIMINATE.** A live handshake against the published 0.9.9 tarball answered `0.9.1`. The obvious conclusion was "the publish is stale". The control — the same handshake against the published **0.9.6** tarball — answered **`0.9.1` as well**. Two known-different inputs producing an identical output is not a passing test; it is a finding. Had the control discriminated, the wrong cause would have been chased and the real one would still be shipping.
+- **Fixed as a derived value, not as a corrected literal.** Re-typing `0.9.10` into `src/server.js` would have reproduced the defect on the next release and every release after it. The version is now read from `package.json` via `createRequire`, with a `try/catch` so a packaging accident degrades the version string instead of killing the server at boot. **A hand-typed number is a promise to update it by hand forever.**
+- **`src/health.js` carried the same defect one generation deeper** — `version: "0.2.0"` and `toolCount: 15`, both frozen, both wrong. Version is now derived; `toolCount` was **deleted rather than corrected**, because a health endpoint has no business restating a figure that is authoritative elsewhere, and a number with no owner is exactly the thing that goes stale. This module has zero importers today (verified by grep, with a positive control on `license.js` returning four real consumers) — but **dead code still ships, so its claims are still readable, and dead code is not exempt from being true.**
+- **`src/http-server.js` already derived its version from `package.json` and said so in a pin-comment.** The codebase held both the fix and the defect side by side. Finding one instance is not finishing: **after fixing an instance, grep for the class.**
+
 ## [0.9.9] - 2026-08-06
 
 ### Fixed

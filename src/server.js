@@ -7,6 +7,29 @@ import { registerIoTTools } from './iot-tools.js';
 import { registerEnterpriseTools } from './enterprise-tools.js';
 import { registerResources } from './resources.js';
 import { initDB } from './iot-db.js';
+import { createRequire } from 'node:module';
+
+// [2026-08-06 CTO] SERVER VERSION IS DERIVED, NEVER TYPED.
+// MEASURED, not assumed: this file carried the literal "0.9.1" at L159 while
+// package.json said 0.9.9. A live `initialize` handshake against the PUBLISHED
+// 0.9.9 tarball AND against the published 0.9.6 tarball BOTH answered
+// serverInfo.version = "0.9.1" -- the control FAILED TO DISCRIMINATE, and that
+// failure is the only reason the freeze was caught at all. Every MCP client
+// that reads serverInfo has been told 0.9.1 across at least eight publishes.
+// The literal was a SECOND place the version had to be updated by hand, which
+// is the same defect class as server.json's packages[0].version drifting from
+// its own root version inside the very commit that fixed a sibling-surface
+// miss. A DERIVED VALUE CANNOT DRIFT. package.json ships in the npm tarball
+// (verified with `npm pack --dry-run --json`) and is in the repo, so the
+// require resolves on both surfaces; the catch means a packaging accident
+// degrades the version string instead of killing the server at boot.
+const PKG_VERSION = (() => {
+  try {
+    return createRequire(import.meta.url)('../package.json').version;
+  } catch {
+    return '0.0.0-unresolved';
+  }
+})();
 
 // Guesty API Configuration
 const GUESTY_CLIENT_ID = process.env.GUESTY_CLIENT_ID;
@@ -156,7 +179,7 @@ async function guestyDelete(path, retries = 2) {
 // Create MCP Server
 const server = new McpServer({
   name: "guesty-mcp-server",
-  version: "0.9.1",
+  version: PKG_VERSION,
 });
 // License tier check
 const _tier = getTier();
