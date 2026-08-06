@@ -481,6 +481,42 @@ server.tool(
   }
 );
 
+// ---------------------------------------------------------------------------
+// [calshape 2026-08-06 CTO] Guesty calendar routes return their day rows in one
+// of four shapes. MEASURED LIVE 2026-08-06 against open-api.guesty.com: BOTH
+// /v1/listings/{id}/calendar (singular) and /v1/listings/calendars (plural)
+// return a BARE TOP-LEVEL ARRAY today.
+//
+// This normalizer ALREADY EXISTED, inline, at the get_calendar_availability site
+// (see ISSUE_1_FIX 2026-04-22 below) and was never propagated to its two
+// siblings, which shipped broken through every release up to and including npm
+// 0.9.5. get_calendar returned days:[] and get_calendar_blocks returned
+// blockedDays:[] for every listing and every date range.
+//
+// IT THROWS ON AN UNRECOGNISED SHAPE ON PURPOSE, AND THAT IS THE LOAD-BEARING
+// PART. Returning [] makes a vendor change indistinguishable from a real empty
+// calendar. For get_calendar_blocks an empty list does not read as "no data" --
+// it reads as "nothing is blocked", i.e. THE UNIT IS FREE. A false "free" is a
+// double-booking on an occupied unit. Fail loudly instead of answering wrongly.
+//
+// strict:false is for the one caller that has a DELIBERATE downstream recovery
+// (deriving occupancy from /reservations when no day rows come back). It still
+// announces the unknown shape on stderr rather than swallowing it -- a silent
+// under-count and a silent over-count are the same disease with opposite signs.
+function normalizeCalendarDays(data, whereFrom, opts) {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.days)) return data.days;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.results)) return data.results;
+  const shape = (data && typeof data === "object")
+    ? `object keys=[${Object.keys(data).join(",")}]`
+    : String(typeof data);
+  const msg = `${whereFrom}: unrecognised Guesty calendar response shape (${shape}). ` +
+    `Refusing to report an empty calendar as an answer.`;
+  if (opts && opts.strict === false) { console.error(`[calshape] ${msg}`); return []; }
+  throw new Error(msg);
+}
+
 // Tool 9: Get Calendar
 server.tool(
   "get_calendar",
@@ -497,13 +533,13 @@ server.tool(
       to: params.to,
     });
 
-    const days = (data.days || data || []).map ? (data.days || []).map((d) => ({
+    const days = normalizeCalendarDays(data, "get_calendar").map((d) => ({
       date: d.date,
       available: d.status === "available",
       price: d.price,
       minNights: d.minNights,
       blockReason: d.blockReason,
-    })) : [];
+    }));
 
     return {
       content: [{ type: "text", text: JSON.stringify({ listing: params.listingId, days }, null, 2) }],
@@ -785,7 +821,7 @@ server.tool(
       to: params.to,
     });
 
-    const blockedDays = (data.days || [])
+    const blockedDays = normalizeCalendarDays(data, "get_calendar_blocks")
       .filter((d) => d.status !== "available")
       .map((d) => ({
         date: d.date,
@@ -1114,12 +1150,9 @@ server.tool(
       endDate: params.to,
     });
 
-    // Normalize response shape across known Guesty calendar variants
-    let days = [];
-    if (Array.isArray(data)) days = data;
-    else if (Array.isArray(data?.days)) days = data.days;
-    else if (Array.isArray(data?.data)) days = data.data;
-    else if (Array.isArray(data?.results)) days = data.results;
+    // Normalize response shape across known Guesty calendar variants.
+    // strict:false preserves this site's deliberate reservations fallback below.
+    let days = normalizeCalendarDays(data, "get_calendar_availability", { strict: false });
 
     // If the calendar endpoint didn't give us per-day rows, derive occupancy
     // from reservations over the window so we never silently return 0.
