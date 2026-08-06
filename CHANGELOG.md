@@ -2,6 +2,12 @@
 
 All notable changes to the Guesty MCP Server will be documented in this file.
 
+## [0.9.9] - 2026-08-06
+
+### Fixed
+- **Every published version through 0.9.8 shipped a 369 KB image that nothing references.** `hero.png` was 369,469 of 542,363 unpacked bytes — **68% of every install** — and is referenced by zero files in the repo (grep across `.js`/`.json`/`.md`/`.html` outside `node_modules`, with a positive control that returned three real files). An MCP stdio server renders nothing and needs no artwork. Tarball is now 24 files / 172,894 bytes unpacked / 46 KB packed, down from 25 / 542,363 / 369 KB.
+- **This was the uncaught half of the 0.9.8 fix, and the miss matters more than the bytes.** 0.9.8 closed the `.gitignore` / `.npmignore` divergence in one direction, and its commit message stated the principle: *".npmignore gets no vote on what git publishes."* The converse is exactly as true and went unchecked — **`.gitignore` gets no vote on what npm publishes.** `hero.png` had never been git-tracked, so the `.gitignore` line added for it changed nothing; the tarball was the only surface it was ever on, and the tarball is the surface that was not audited. **Fixing a source and assuming the sibling followed is the defect — not forgetting a pattern.** `.npmignore` now excludes binary asset extensions as a class, with the reasoning recorded inline.
+
 ## [0.9.8] - 2026-08-06
 
 ### Fixed
