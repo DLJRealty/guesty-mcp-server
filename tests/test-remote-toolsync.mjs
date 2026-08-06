@@ -120,10 +120,34 @@ if (SERVER_INFO.version !== PKG.version) {
 
 // The human-readable description carries its own hardcoded tool count. Same
 // failure shape as TOOLS: a number typed by hand next to a list that moves.
-const m = /(\d+)\s+production tools/.exec(SERVER_INFO.description || "");
-if (!m) fail("SERVER_INFO.description no longer states a tool count -- this assertion has gone blind, fix or delete it");
-else if (Number(m[1]) !== realSet.size) fail(`description says "${m[1]} production tools", real count is ${realSet.size}`);
-else ok(`description tool count ${m[1]} matches`);
+//
+// 2026-08-06 (CTO): THIS ASSERTION DID EXACTLY WHAT ITS AUTHOR BUILT IT TO DO.
+// I reworded the description from "43 production tools" to "43 registered
+// tools", and instead of silently passing on a pattern that no longer matched,
+// it failed with "this assertion has gone blind". A check that detects its own
+// blindness is worth more than a check that is merely correct. Do not weaken it.
+//
+// The wording changed because "production tools" was an availability claim: 43
+// are REGISTERED, but 19 sit behind tiers nobody can buy. So the description now
+// carries BOTH ledgers, and this assertion now checks BOTH -- the registered
+// figure against the live registration census, and the free figure against
+// license.js's GUESTY_FREE_TOOL_COUNT rather than against a number typed here.
+const m = /(\d+)\s+registered tools/.exec(SERVER_INFO.description || "");
+if (!m) fail("SERVER_INFO.description no longer states a registered-tool count -- this assertion has gone blind, fix or delete it");
+else if (Number(m[1]) !== realSet.size) fail(`description says "${m[1]} registered tools", real count is ${realSet.size}`);
+else ok(`description registered-tool count ${m[1]} matches`);
+
+const { GUESTY_FREE_TOOL_COUNT, FREE_TOOLS } = await import("../src/license.js");
+const mf = /(\d+)\s+free read-only Guesty tools/.exec(SERVER_INFO.description || "");
+if (!mf) fail("SERVER_INFO.description no longer states a free-tool count -- this assertion has gone blind, fix or delete it");
+else if (Number(mf[1]) !== GUESTY_FREE_TOOL_COUNT) fail(`description says "${mf[1]} free read-only Guesty tools", GUESTY_FREE_TOOL_COUNT is ${GUESTY_FREE_TOOL_COUNT}`);
+else ok(`description free-tool count ${mf[1]} matches GUESTY_FREE_TOOL_COUNT`);
+
+// The published figure must never silently become the access figure. If someone
+// collapses the two ledgers back into one, this is the line that says so.
+if (GUESTY_FREE_TOOL_COUNT >= FREE_TOOLS.length) {
+  fail(`published free count ${GUESTY_FREE_TOOL_COUNT} is not below the gate's access count ${FREE_TOOLS.length} -- the two ledgers have been collapsed`);
+} else ok(`ledgers still distinct: published ${GUESTY_FREE_TOOL_COUNT} < access ${FREE_TOOLS.length}`);
 
 console.log(failures === 0
   ? `\nPASS remote tool sync: ${realSet.size} tools, advertised set == registered set`

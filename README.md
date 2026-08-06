@@ -11,7 +11,7 @@ The first MCP (Model Context Protocol) server for [Guesty](https://guesty.com) p
 
 **Built in production** on 10 of our own short-term rentals. Node.js + MCP SDK + Express, MIT licensed. Things we learned: Guesty's `/reservations` endpoint only returns future data (we use the calendar endpoint for historical), and the SSE transport doesn't run on Vercel serverless (expected). **The first and only MCP server for Guesty — 23 free read-only tools live now.**
 
-Full tool surface: **43 tools total** — 23 free read-only tools live now; the full **39-tool Pro** tier (adds 16 write/guest-messaging tools) and a **4-tool Enterprise IoT** add-on (`get_readiness_score`, `get_property_health`, `submit_checkout_photos`, `get_maintenance_alerts`) unlock at v1.0.
+Full tool surface: **43 tools registered** — 23 free read-only Guesty tools live now, plus `get_license_info`, which reports this server's own licensing state and makes no Guesty API call. A **Pro** tier would add **15 gated tools**: 14 write/guest-messaging operations plus `get_conversations`, which is read-only but is gated because it returns message content. An **Enterprise IoT** add-on (`get_readiness_score`, `get_property_health`, `submit_checkout_photos`, `get_maintenance_alerts`) sits above that. **Paid tiers are not yet available and no release date is set.**
 
 > **Want AI to handle your guest messages 24/7?** [Guesty Copilot](https://guestycopilot.com) -- AI guest management for Guesty hosts, built on this MCP server. Now in beta.
 
@@ -112,6 +112,13 @@ Or add to your Claude Code settings (`~/.claude/settings.json`):
 | `delete_webhook` | Remove a registered webhook |
 | `get_custom_fields` | Fetch custom fields for listings or reservations |
 | `get_account_info` | Get account info and subscription details |
+
+### Server & Licensing
+| Tool | Description |
+|------|-------------|
+| `get_license_info` | Report this MCP server's own licensing state — active tier, which tools are permitted, and whether paid tiers are available. Makes no Guesty API call. |
+
+This tool is available on the free tier. It is counted in the 43 registered tools but **not** in the "23 free read-only Guesty tools" figure, because it reports our licensing state rather than doing anything with your Guesty account: 23 Guesty tools + this one = the 24 tools the free tier can call.
 
 ### Enterprise Tier
 | Tool | Description |

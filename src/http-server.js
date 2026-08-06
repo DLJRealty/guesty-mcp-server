@@ -45,7 +45,12 @@ app.use((req, res, next) => {
 const SERVER_INFO = {
   name: "guesty-mcp-server",
   version: PKG_VERSION,
-  description: "MCP server for Guesty property management — 43 production tools covering reservations, guests, messaging, pricing, revenue, tasks, webhooks, and IoT/property-health Enterprise tier.",
+  // 2026-08-06 (CTO): was "43 production tools". 43 is the REGISTERED count;
+  // 19 of them are gated behind tiers that are not purchasable, so "production
+  // tools" read as an availability claim it could not honour. Same class as the
+  // server.json registry description and the README's 23-vs-24 split — one
+  // number standing in for two different ledgers (registered vs available).
+  description: "MCP server for Guesty property management — 43 registered tools (23 free read-only Guesty tools available today) covering reservations, guests, messaging, pricing, revenue, tasks, webhooks, and IoT/property-health.",
   capabilities: {
     tools: { listChanged: false },
     resources: { listChanged: false }

@@ -113,6 +113,64 @@ async function run() {
       "internal tier token is not leaked to the customer");
   }
 
+  // ---------------------------------------------------------------------
+  // 6. THE FREE BRANCH — the only branch a real customer reaches today.
+  //
+  // 2026-08-06 (CTO). Section 5 above guards the ENTERPRISE arm of
+  // gatedHandler's if/else. While PAID_TIERS_LIVE is false, resolveTier()
+  // returns "free" or "paid_not_yet_wired" before the pro/business/enterprise
+  // branches are reachable at all — so section 5 tests DEAD CODE, and until
+  // now there was NO test on the live arm. The test gap mirrored the code gap
+  // exactly: #372 fixed the unreachable branch and left the reachable one
+  // telling free callers to set a key the switch would refuse.
+  // ---------------------------------------------------------------------
+  console.log("\n6. Free tier (no key) — live branch: refusal copy + the two ledgers");
+  delete process.env.GUESTY_MCP_LICENSE_KEY;
+  const lic = await import('../src/license.js');
+  const { getTier, getTierInfo, isToolAllowed, gatedHandler,
+          FREE_TOOLS, GUESTY_FREE_TOOL_COUNT, LOCAL_TOOLS } = lic;
+
+  assert(getTier() === "free", "no key resolves to free");
+
+  const r6 = await gatedHandler("send_guest_message", async () => ({
+    content: [{ type: "text", text: "HANDLER RAN" }],
+  }))({});
+  const t6 = r6?.content?.[0]?.text || "";
+  assert(r6.isError === true && !t6.includes("HANDLER RAN"),
+    "free tier: gated tool refused, handler never ran");
+
+  if (lic.PAID_TIERS_LIVE) {
+    assert(/GUESTY_MCP_LICENSE_KEY/.test(t6),
+      "paid tiers live: free refusal DOES point at the key");
+  } else {
+    // Same regression as section 5, on the branch that is actually reachable.
+    assert(!/GUESTY_MCP_LICENSE_KEY/.test(t6),
+      "kill-switch on: free refusal does not tell the customer to set a key it will then refuse");
+    assert(/not yet available/.test(t6),
+      "kill-switch on: free refusal says paid tiers are not yet available");
+  }
+  assert(!t6.includes("paid_not_yet_wired"),
+    "free refusal does not leak the internal tier token");
+
+  // THE TWO LEDGERS. FREE_TOOLS.length is the ACCESS figure (what the gate
+  // permits). GUESTY_FREE_TOOL_COUNT is the PUBLISHED capability figure — it
+  // excludes get_license_info, which makes no Guesty API call. Publishing the
+  // access figure would inflate the capability claim by one. These asserts
+  // exist so that a future edit cannot silently re-collapse them.
+  assert(isToolAllowed("get_license_info") === true,
+    "get_license_info is inside the gate and permitted at free");
+  assert(GUESTY_FREE_TOOL_COUNT + LOCAL_TOOLS.length === FREE_TOOLS.length,
+    `ledgers reconcile: ${GUESTY_FREE_TOOL_COUNT} guesty + ${LOCAL_TOOLS.length} local = ${FREE_TOOLS.length} access`);
+  assert(GUESTY_FREE_TOOL_COUNT < FREE_TOOLS.length,
+    "published capability figure is strictly below the access figure");
+  const i6 = getTierInfo();
+  assert(i6.freeToolCount === GUESTY_FREE_TOOL_COUNT,
+    "getTierInfo().freeToolCount reports the PUBLISHED figure");
+  assert(i6.accessibleToolCount === FREE_TOOLS.length,
+    "getTierInfo().accessibleToolCount reports the ACCESS figure");
+  assert(!new RegExp(`\\b${FREE_TOOLS.length}\\b`).test(t6),
+    "free refusal copy does not quote the access figure to the customer");
+
   console.log(`\n=== Results: ${passed} passed, ${failed} failed ===`);
   process.exit(failed > 0 ? 1 : 0);
 }

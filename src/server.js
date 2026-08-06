@@ -1572,17 +1572,30 @@ server.tool(
 
 
 // License Info Tool
+//
+// 2026-08-06 (CTO): wrapped in gatedHandler. It had a PLAIN handler, which meant
+// isToolAllowed() was never consulted for this tool and it was reachable at every
+// tier by bypassing the gate rather than by passing it. THIS WRAP IS A NO-OP FOR
+// ACCESS, NOT A RESTRICTION: "get_license_info" is now listed in FREE_TOOLS, so
+// the gate returns true for it at free, paid_not_yet_wired and every paid tier.
+// Verified by exercise before shipping — the handler still runs and isError stays
+// undefined. What changes is that the tool is now INSIDE the accounting: it is
+// counted by freeToolCount/accessibleToolCount instead of being an off-ledger
+// 24th tool that made every published count wrong by one.
+//
+// Do not "simplify" this back to a plain handler. A tool outside the gate is a
+// tool outside the census, and the census is what we publish.
 server.tool(
   "get_license_info",
   "Show current license tier, available tools, and upgrade information.",
   {},
   { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-  async () => {
+  gatedHandler("get_license_info", async () => {
     const info = getTierInfo();
     info.freeTools = FREE_TOOLS;
     info.upgradeUrl = "https://guestycopilot.com/pricing";
     return { content: [{ type: "text", text: JSON.stringify(info, null, 2) }] };
-  }
+  })
 );
 
 // Initialize IoT database and register Enterprise-tier tools.
