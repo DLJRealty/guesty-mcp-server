@@ -71,8 +71,24 @@ async function run() {
   const t4 = r4?.content?.[0]?.text || "";
   assert(t4.includes("Enterprise license"), "gate message references Enterprise license");
 
-  // Test 5: enterprise-tier lifts the gate
-  console.log("\n5. Enterprise-tier gate lifts");
+  // Test 5: what an Enterprise-prefix key actually does RIGHT NOW.
+  //
+  // THIS TEST WAS RED FROM v0.9.2 UNTIL 2026-08-06 AND IT WAS RIGHT THE WHOLE
+  // TIME. It was written at v0.8.1, when a paid prefix really did lift the gate.
+  // v0.9.2 then added the PAID_TIERS_LIVE kill-switch, which routes EVERY
+  // paid-prefix key -- gmcp_ent_* included -- to tier "paid_not_yet_wired".
+  // So the gate legitimately no longer lifts, and the old assertion legitimately
+  // failed. Nobody read it, because the suite was red and a red suite is
+  // indistinguishable from noise. What the red actually exposed was a real
+  // customer-facing defect: iot-tools.js carried its OWN copy of the gate that
+  // had never heard of the kill-switch, and told the customer to set a
+  // gmcp_ent_* key -- advice that lands them right back on this same message.
+  //
+  // The expectation is now KEYED OFF THE SWITCH rather than pinned to either
+  // behavior, so it follows automatically when paid tiers go live at v1.0
+  // instead of going stale again.
+  console.log("\n5. Enterprise-prefix key — behavior keyed off PAID_TIERS_LIVE");
+  const { PAID_TIERS_LIVE, PAID_TIERS_NOT_WIRED_MSG } = await import('../src/license.js');
   process.env.GUESTY_MCP_LICENSE_KEY = "test_ent";
   let uncaught = false;
   let r5;
@@ -84,7 +100,18 @@ async function run() {
   }
   assert(!uncaught, "aggregator did not throw uncaught");
   const t5 = r5?.content?.[0]?.text || "";
-  assert(!t5.includes("requires an Enterprise license"), "enterprise-tier bypasses the gate");
+  if (PAID_TIERS_LIVE) {
+    assert(!t5.includes("requires an Enterprise license"), "paid tiers live: enterprise key lifts the gate");
+  } else {
+    assert(t5 === PAID_TIERS_NOT_WIRED_MSG,
+      "kill-switch on: enterprise key gets license.js's NOT-YET-WIRED message verbatim");
+    // The specific regression this guards. A remedy the switch disables is worse
+    // than no remedy: the customer follows it and arrives back here.
+    assert(!/gmcp_ent_\*/.test(t5),
+      "gate does not tell the customer to set a gmcp_ent_* key it will then refuse");
+    assert(!t5.includes("paid_not_yet_wired"),
+      "internal tier token is not leaked to the customer");
+  }
 
   console.log(`\n=== Results: ${passed} passed, ${failed} failed ===`);
   process.exit(failed > 0 ? 1 : 0);

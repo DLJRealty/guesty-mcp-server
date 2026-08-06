@@ -21,7 +21,7 @@
  */
 
 import { z } from "zod";
-import { getTier } from "./license.js";
+import { getTier, PAID_TIERS_NOT_WIRED_MSG } from "./license.js";
 import {
   getLatestReadings,
   getAlerts,
@@ -40,16 +40,36 @@ export function enterpriseGated(toolName, handler) {
   return async (params) => {
     const tier = getTier();
     if (tier !== "enterprise") {
+      // v0.9.2 kill-switch (PAID_TIERS_LIVE=false) makes EVERY paid-prefix key --
+      // including gmcp_ent_* -- resolve to "paid_not_yet_wired". Without this
+      // branch the message below told a customer to set a gmcp_ent_* key to
+      // unlock, WHICH CANNOT WORK WHILE THE KILL-SWITCH IS OFF: they would set
+      // the key, land back on paid_not_yet_wired, and be told the same thing
+      // again. license.js already maintains the correct copy for this exact
+      // state; defer to it rather than growing a third variant here.
+      // MEASURED 2026-08-06: this is why tests/test-enterprise.js case 5 had
+      // been failing since v0.9.2 -- the test was right and nobody read it,
+      // because a red suite is indistinguishable from noise.
+      if (tier === "paid_not_yet_wired") {
+        return {
+          content: [{ type: "text", text: PAID_TIERS_NOT_WIRED_MSG }],
+          isError: true,
+        };
+      }
       return {
         content: [
           {
             type: "text",
             text:
+              // The prior copy ended "Set GUESTY_MCP_LICENSE_KEY with an
+              // Enterprise key (gmcp_ent_*) to unlock." That instruction cannot
+              // succeed for ANY tier while PAID_TIERS_LIVE is false, so it was
+              // removed rather than reworded. license.js's ENT branch names no
+              // prefix for the same reason; this now matches it.
               `This tool (${toolName}) requires an Enterprise license. ` +
               `Your current tier is "${tier}". ` +
               "IoT monitoring, property health aggregation, and readiness scoring are Enterprise-only features. " +
-              "Upgrade at https://guestycopilot.com/pricing -- " +
-              "Set GUESTY_MCP_LICENSE_KEY with an Enterprise key (gmcp_ent_*) to unlock.",
+              "Talk to us at https://guestycopilot.com/pricing",
           },
         ],
         isError: true,

@@ -5,6 +5,12 @@
  */
 import express from "express";
 import { randomUUID } from "crypto";
+import { createRequire } from "module";
+
+// Version is READ from package.json, never re-typed here. The literal "0.8.2"
+// sat in this file through four releases and was served to every client that
+// called initialize.
+const PKG_VERSION = createRequire(import.meta.url)("../package.json").version;
 
 const app = express();
 app.use(express.json());
@@ -38,7 +44,7 @@ app.use((req, res, next) => {
 // Server info
 const SERVER_INFO = {
   name: "guesty-mcp-server",
-  version: "0.8.2",
+  version: PKG_VERSION,
   description: "MCP server for Guesty property management — 43 production tools covering reservations, guests, messaging, pricing, revenue, tasks, webhooks, and IoT/property-health Enterprise tier.",
   capabilities: {
     tools: { listChanged: false },
@@ -47,23 +53,59 @@ const SERVER_INFO = {
 };
 
 // Tool definitions (metadata only — execution requires Guesty credentials)
+// Tool names, GENERATED from the real registrations in src/server.js,
+// src/iot-tools.js and src/enterprise-tools.js. DO NOT HAND-EDIT.
+// This list was hand-maintained until 2026-08-06 and had drifted to a 12-of-43
+// overlap with the product -- 31 advertised names did not exist, and the two
+// calendar tools the 0.9.6 release fixed were not advertised at all.
+// tests/test-remote-toolsync.mjs FAILS THE BUILD if this diverges again.
+// NOTE: this endpoint advertises the surface; it does NOT execute it (see /mcp
+// tools/call below). Deriving this at runtime is not possible here: importing
+// server.js calls initDB() and connects a stdio transport at module load.
 const TOOLS = [
-  "list_reservations", "get_reservation", "create_reservation", "update_reservation",
-  "list_listings", "get_listing", "update_listing", "list_listing_calendar",
-  "update_calendar_availability", "update_calendar_pricing",
-  "get_guest", "list_guests", "search_guests",
-  "list_conversations", "get_conversation_posts", "send_message",
-  "get_financial_summary", "list_owner_payouts", "get_payout_details",
-  "list_tasks", "create_task", "update_task",
-  "list_reviews", "get_review", "reply_to_review",
-  "create_webhook", "list_webhooks", "delete_webhook",
-  "get_listing_pricing", "update_listing_base_price",
-  "list_listing_photos", "get_listing_availability",
-  "check_in_guest", "check_out_guest",
-  "list_cleaning_tasks", "assign_cleaning_task",
-  "get_revenue_report", "get_occupancy_report", "get_channel_distribution",
-  // Enterprise tier (IoT / property health)
-  "get_property_health", "submit_checkout_photos", "get_maintenance_alerts", "get_readiness_score"
+  "create_expense",
+  "create_reservation",
+  "create_reservation_note",
+  "create_task",
+  "create_webhook",
+  "delete_webhook",
+  "get_account_info",
+  "get_automation_rules",
+  "get_calendar",
+  "get_calendar_blocks",
+  "get_channels",
+  "get_conversations",
+  "get_custom_fields",
+  "get_expenses",
+  "get_financials",
+  "get_guest_by_id",
+  "get_guests",
+  "get_license_info",
+  "get_listing",
+  "get_listing_occupancy",
+  "get_listing_pricing",
+  "get_maintenance_alerts",
+  "get_owner_statements",
+  "get_photos",
+  "get_property_health",
+  "get_readiness_score",
+  "get_reservation_financials",
+  "get_reservations",
+  "get_revenue_summary",
+  "get_reviews",
+  "get_supported_languages",
+  "get_tasks",
+  "get_webhooks",
+  "respond_to_review",
+  "search_reservations",
+  "send_guest_message",
+  "submit_checkout_photos",
+  "update_calendar",
+  "update_listing",
+  "update_listing_pricing",
+  "update_photos",
+  "update_pricing",
+  "update_reservation"
 ];
 
 // Health
@@ -127,12 +169,25 @@ app.post("/mcp", (req, res) => {
       });
       break;
 
-    case "tools/call":
+    case "tools/call": {
+      // MEASURED 2026-08-06: before this branch existed, ZZ_NO_SUCH_TOOL returned
+      // BYTE-IDENTICAL output to get_listing. A caller could not distinguish "this
+      // tool does not exist" from "this tool exists but I will not run it", so the
+      // 31 phantom names above were indistinguishable from real ones by probing.
+      const wanted = params && params.name;
+      if (!TOOLS.includes(wanted)) {
+        res.json({
+          jsonrpc: "2.0", id,
+          error: { code: -32601, message: `Unknown tool: ${wanted}. Call tools/list for the ${TOOLS.length} tools this server advertises.` }
+        });
+        break;
+      }
       res.json({
         jsonrpc: "2.0", id,
         error: { code: -32001, message: "Tool execution requires Guesty API credentials. Install locally: npx guesty-mcp-server" }
       });
       break;
+    }
 
     default:
       res.json({ jsonrpc: "2.0", id, error: { code: -32601, message: `Method not found: ${method}` } });
@@ -159,3 +214,8 @@ if (process.env.VERCEL) {
 }
 
 export default app;
+// Named exports exist ONLY so tests/test-remote-toolsync.mjs can assert against the
+// REAL runtime values rather than a text-scrape of this file. Vercel uses the
+// default export and is unaffected. Import this module with VERCEL=1 set, or
+// app.listen() below will bind a port in your test process.
+export { TOOLS, SERVER_INFO };

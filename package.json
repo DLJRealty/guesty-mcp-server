@@ -11,7 +11,7 @@
   "scripts": {
     "start": "node src/server.js",
     "prepack": "node -e \"const fs=require('fs');const ok=['README.md','LICENSE'];const bad=fs.readdirSync('.').filter(f=>/^(README|LICEN[SC]E)/.test(f)&&!ok.includes(f));if(bad.length){console.error('PREPACK '+'ABORT: npm force-includes root README/LICENSE-prefixed files regardless of .npmignore. These WOULD be published: '+bad.join(', ')+'. Move them to _backups/.');process.exit(1)}\"",
-    "test": "node tests/test-enterprise.js && node tests/test-iot.js"
+    "test": "rc=0; for t in tests/test-enterprise.js tests/test-iot.js tests/test-remote-toolsync.mjs; do echo \"--- $t\"; node \"$t\" || rc=1; done; exit $rc"
   },
   "keywords": [
     "mcp",
