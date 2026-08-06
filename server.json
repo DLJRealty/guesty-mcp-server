@@ -3,7 +3,7 @@
   "name": "io.github.DLJRealty/guesty",
   "title": "Guesty MCP Server",
   "description": "Guesty property-management MCP server. Read-only access to reservations, listings, calendar, guests, reviews and revenue using your own Guesty API credentials.",
-  "version": "0.9.10",
+  "version": "0.9.11",
   "websiteUrl": "https://guestycopilot.com",
   "repository": {
     "url": "https://github.com/DLJRealty/guesty-mcp-server",
@@ -13,7 +13,7 @@
     {
       "registryType": "npm",
       "identifier": "guesty-mcp-server",
-      "version": "0.9.10",
+      "version": "0.9.11",
       "transport": {
         "type": "stdio"
       },
