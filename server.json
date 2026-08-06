@@ -41,5 +41,11 @@
         }
       ]
     }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://guesty-mcp-server.vercel.app/mcp"
+    }
   ]
 }
