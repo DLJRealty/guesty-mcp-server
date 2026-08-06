@@ -25,3 +25,14 @@ guesty-partnership-email.md
 *.orig
 *.swp
 *.tmp
+
+# [packguard 2026-08-06 CTO] MEASURED, not assumed: npm 11.11.0 FORCE-INCLUDES
+# any PACKAGE-ROOT file whose name begins with README or LICENSE (case-sensitive,
+# position 0). .npmignore GETS NO VOTE on those names -- the *.pre-* rule above is
+# correct and simply UNREACHABLE for them. That is how README.md.pre-ipstrip-* and
+# README.md.pre-v095-lock-* reached the PUBLIC npm registry in v0.9.5, carrying the
+# PRE-honesty-scrub marketing copy (including a '779 downloads' claim that had been
+# deliberately removed from the shipped README).
+# The force-include is ROOT-ONLY -- a copy in a subdirectory IS excluded -- so editor
+# backups now live in _backups/. DO NOT put editor backups in the package root.
+_backups/
