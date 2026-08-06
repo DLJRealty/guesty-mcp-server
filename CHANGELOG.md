@@ -2,6 +2,17 @@
 
 All notable changes to the Guesty MCP Server will be documented in this file.
 
+## [0.9.6] - 2026-08-06
+
+### Fixed
+- **`get_calendar` returned `days: []` and `get_calendar_blocks` returned `blockedDays: []` for every listing and every date range.** Guesty's `/v1/listings/{id}/calendar` returns a **bare top-level array**; both tools read `data.days`, which does not exist. `get_calendar`'s guard made this invisible — it tested `(data.days || data || []).map` (truthy on a bare array, so the guard passed) and then mapped `(data.days || [])` (empty). **The guard and the body evaluated different expressions, so the check reported healthy on exactly the input that defeated it.** Measured live against `open-api.guesty.com` on 2026-08-06: the old expression yields 0 rows where the API returned 4.
+- All three calendar call sites now route through one `normalizeCalendarDays()` helper handling bare-array / `days` / `data` / `results`. **It throws on an unrecognised shape by design:** for `get_calendar_blocks` an empty list does not read as "no data", it reads as "nothing is blocked" — i.e. *the unit is free* — and a false "free" on an occupied unit is a double-booking. `get_calendar_availability` keeps its deliberate reservation-derived fallback via `{ strict: false }`, which still announces the unknown shape on stderr rather than swallowing it.
+- **Root cause worth naming:** the correct normalizer already existed inline at `get_calendar_availability`, shipped in 0.9.1 (see the Issue #1 entry below) and was never propagated to its two siblings. The broken sites shipped in every release through 0.9.5.
+
+### Security / packaging
+- **Removed two editor backup files that were being published to the public registry.** `README.md.pre-ipstrip-listings-*` and `README.md.pre-v095-lock-*` shipped inside the 0.9.5 tarball. **npm force-includes any package-root file whose name begins with `README` or `LICENSE` — `.npmignore` gets no vote on those names** (measured on npm 11.11.0; the force-include is root-only, so a copy in a subdirectory *is* excluded). The existing `*.pre-*` ignore rule was never broken, only unreachable for that one name shape. No credentials or private hosts were exposed; the content was pre-edit marketing copy carrying a download-count claim that had been deliberately removed from the shipped README.
+- Added a `prepack` guard that aborts the publish and names any offending file, so this cannot recur silently. Editor backups now live in `_backups/`.
+
 ## [0.9.1] - 2026-04-22
 
 ### Fixed
