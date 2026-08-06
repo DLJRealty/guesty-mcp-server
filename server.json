@@ -3,7 +3,7 @@
   "name": "io.github.DLJRealty/guesty",
   "title": "Guesty MCP Server",
   "description": "Guesty property-management MCP. 23 free read-only tools live; 43 total (Pro+Enterprise) at v1.0.",
-  "version": "0.9.6",
+  "version": "0.9.7",
   "websiteUrl": "https://guestycopilot.com",
   "repository": {
     "url": "https://github.com/DLJRealty/guesty-mcp-server",
@@ -13,7 +13,7 @@
     {
       "registryType": "npm",
       "identifier": "guesty-mcp-server",
-      "version": "0.9.6",
+      "version": "0.9.7",
       "transport": {
         "type": "stdio"
       },
@@ -40,12 +40,6 @@
           "name": "GUESTY_MCP_LICENSE_KEY"
         }
       ]
-    }
-  ],
-  "remotes": [
-    {
-      "type": "streamable-http",
-      "url": "https://guesty-mcp-server.vercel.app/mcp"
     }
   ]
 }
