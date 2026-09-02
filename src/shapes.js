@@ -20,21 +20,33 @@ export function extractReviewRows(payload) {
 
 export function mapReviewRow(r) {
   const raw = r.rawReview || {};
-  const text = raw.public_review ?? raw.comments ?? raw.comment ?? r.comment ?? "";
+  const content = raw.content && typeof raw.content === "object" ? raw.content : {};
+  // Airbnb: public_review + overall_rating (1-5). Booking.com: content.{headline,
+  // positive,negative} + scoring.review_score (1-10). Measured live 2026-09-02.
+  const airbnbText = raw.public_review ?? raw.comments ?? raw.comment ?? r.comment;
+  const bookingText = [content.headline, content.positive, content.negative]
+    .filter((x) => typeof x === "string" && x.trim()).join(" | ");
+  const text = airbnbText ?? (bookingText || "");
   const priv = raw.private_feedback ?? "";
+  const rating = raw.overall_rating ?? raw.rating ?? r.rating ?? raw.scoring?.review_score ?? null;
+  const ratingScale = raw.overall_rating != null || raw.rating != null || r.rating != null ? 5
+    : raw.scoring?.review_score != null ? 10 : null;
   return {
     id: r._id,
     listingId: r.listingId,
     reservationId: r.reservationId,
     guestId: r.guestId,
     channel: r.channelId,
-    reviewerRole: raw.reviewer_role,
-    rating: raw.overall_rating ?? raw.rating ?? r.rating ?? null,
-    categoryRatings: raw.category_ratings ?? null,
+    reviewerRole: raw.reviewer_role ?? (raw.reviewer ? "guest" : undefined),
+    reviewerName: raw.reviewer?.name ?? null,
+    rating,
+    ratingScale,
+    categoryRatings: raw.category_ratings ?? raw.scoring ?? null,
     comment: String(text).slice(0, 300),
     privateFeedback: String(priv).slice(0, 200),
+    hostReply: raw.reply ?? null,
     hidden: raw.hidden ?? null,
-    submittedAt: raw.submitted_at ?? null,
+    submittedAt: raw.submitted_at ?? raw.created_timestamp ?? null,
     date: (r.createdAt || "").slice(0, 10),
   };
 }

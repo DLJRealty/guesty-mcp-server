@@ -2,6 +2,14 @@
 
 All notable changes to the Guesty MCP Server will be documented in this file.
 
+## [0.10.2] - 2026-09-02
+
+### Fixed
+- **`get_reviews`: Booking.com reviews came back with `rating: null` and an empty comment on 0.10.1.** Booking.com rows carry `scoring.review_score` (1–10) and `content.{headline, positive, negative}` instead of Airbnb's `overall_rating` / `public_review`. Measured live: 15 of 100 rows on our account. Rows now include `ratingScale` (5 or 10) so an agent never averages the two channels as if they were the same scale, plus `reviewerName` and `hostReply`.
+
+### Added
+- `.github/workflows/publish-mcp-registry.yml` — every GitHub release republishes `server.json` to the official MCP registry via OIDC (the registry had been stuck at 0.6.0 because a `server.json` bump in git publishes nothing).
+
 ## [0.10.1] - 2026-09-02
 
 ### Fixed

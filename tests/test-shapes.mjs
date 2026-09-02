@@ -21,6 +21,14 @@ eq(m.comment.startsWith("Great place!"), true, "review text comes from rawReview
 // The OLD mapper read r.rating / r.comment — on the live row those are undefined. Control: prove the old read fails.
 eq([live.data[0].rating, live.data[0].comment], [undefined, undefined], "control: the pre-fix fields do not exist on a live row (why every caller saw [])");
 
+// 1b. Booking.com review shape (measured live): scoring.review_score 1-10, content.{headline,positive,negative}
+const bk = mapReviewRow({ _id: "rv2", channelId: "bookingCom", listingId: "L2", createdAt: "2026-08-01T00:00:00.000Z",
+  rawReview: { review_id: 1, scoring: { clean: null, review_score: 8 }, content: { headline: "Nice", positive: "Quiet spot", negative: "Cold shower", language_code: "en" },
+  reviewer: { name: "Sam", country_code: "us" }, reply: null } });
+eq([bk.rating, bk.ratingScale, bk.reviewerName, bk.comment], [8, 10, "Sam", "Nice | Quiet spot | Cold shower"], "Booking.com row maps review_score/10, reviewer name, and joined content");
+eq([m.ratingScale], [5], "Airbnb row reports a 5-point scale");
+eq(mapReviewRow({ _id: "x", rawReview: {} }).rating, null, "control: a row with no rating anywhere yields null, not a crash");
+
 // 2. calendar blocks: live day shape
 const day = { date: "2026-09-02", status: "booked", reservationId: "RES1",
   blocks: { m: false, r: false, b: true, bd: false, sr: false, abl: false, a: false, bw: false, o: false, pt: false, an: true },

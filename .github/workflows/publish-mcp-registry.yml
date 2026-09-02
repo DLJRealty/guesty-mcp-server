@@ -1,0 +1,55 @@
+# Publishes server.json to the official MCP registry (registry.modelcontextprotocol.io)
+# using GitHub Actions OIDC — no stored token. The io.github.DLJRealty/* namespace
+# is proven by the workflow running in this org, and npm ownership is proven by
+# the `mcpName` field in the published package.json.
+#
+# WHY THIS EXISTS (2026-09-02): the registry listed 0.6.0 as our newest version
+# while npm was at 0.10.x — bumping server.json in git never republishes the
+# registry record. Every GitHub release now republishes it.
+name: Publish to MCP Registry
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+permissions:
+  id-token: write
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert server.json version == package.json version == release tag
+        run: |
+          set -e
+          PKG=$(node -p "require('./package.json').version")
+          SRV=$(node -p "require('./server.json').version")
+          SRV2=$(node -p "require('./server.json').packages[0].version")
+          TAG="${GITHUB_REF_NAME#v}"
+          echo "package.json=$PKG server.json=$SRV packages[0]=$SRV2 tag=$TAG"
+          [ "$PKG" = "$SRV" ] && [ "$PKG" = "$SRV2" ] || { echo "VERSION MISMATCH"; exit 1; }
+          if [ "${GITHUB_EVENT_NAME}" = "release" ]; then [ "$PKG" = "$TAG" ] || { echo "TAG != VERSION"; exit 1; }; fi
+      - name: Wait for npm to serve this version (registry validates the npm package)
+        run: |
+          V=$(node -p "require('./package.json').version")
+          for i in $(seq 1 20); do
+            if npm view "guesty-mcp-server@$V" version >/dev/null 2>&1; then echo "npm has $V"; exit 0; fi
+            echo "npm does not have $V yet ($i/20)"; sleep 15
+          done
+          echo "npm never served $V — publish to npm first"; exit 1
+      - name: Install mcp-publisher
+        run: |
+          curl -sL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+          ./mcp-publisher --version
+      - name: Login (OIDC)
+        run: ./mcp-publisher login github-oidc
+      - name: Publish server.json
+        run: ./mcp-publisher publish
+      - name: Verify the registry now serves this version
+        run: |
+          V=$(node -p "require('./package.json').version")
+          for i in $(seq 1 10); do
+            if curl -s "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.DLJRealty/guesty" | grep -q "\"version\":\"$V\""; then echo "registry serves $V"; exit 0; fi
+            sleep 10
+          done
+          echo "registry does not show $V after publish"; exit 1
