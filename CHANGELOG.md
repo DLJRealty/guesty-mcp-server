@@ -2,6 +2,18 @@
 
 All notable changes to the Guesty MCP Server will be documented in this file.
 
+## [0.10.0] - 2026-09-02
+
+### Changed
+- **All 43 tools are now free. No license key, no paid tier.** For about four months 19 of the 43 registered tools (15 write/guest-messaging tools and the 4 IoT/property-health tools) were gated behind Pro and Enterprise tiers that could not be purchased, so every call to them returned `isError` — to everyone, always. Advertising tools that error is worse than not charging for them. The gate is now open by a single policy constant, `ALL_TOOLS_FREE` in `src/license.js`, and the tier ledgers are kept as named lists so the policy can be reversed in one line if a paid tier is ever actually wired.
+- **`enterpriseGated` in `src/iot-tools.js` no longer carries its own tier check.** It defers to `isToolAllowed()` in `license.js`, the same gate every other tool uses. Two copies of one policy is how the 0.9.7 defect (a remedy the kill-switch disabled) shipped in the first place.
+- **The registered-tool count is derived, not typed.** `TOTAL_TOOLS` is now the sum of the four ledgers, and `tests/test-remote-toolsync.mjs` asserts the union of those ledgers equals the live `server.tool()` registration census in both directions. A tool registered without a ledger entry fails the build instead of going off-census.
+- **`get_license_info`** now reports `allToolsFree`, `licenseRequired: false` and `gatedToolCount: 0`; the `upgradeUrl` field (which pointed at a pricing page with nothing to buy) is replaced by `website`.
+- README, `package.json`, `server.json` and the remote `SERVER_INFO` description all say the same thing: 43 registered, all free, 42 of them Guesty tools. The IoT/property-health section now says what those tools do with no devices configured (empty lists and null signals, not errors) instead of calling them unlockable.
+
+### Tests
+- `tests/test-enterprise.js` exercises **both arms** of `ALL_TOOLS_FREE` through the new pure `isToolAllowedAt(tier, tool, allToolsFree)`: the closed arm must still refuse a write at the free tier and an IoT tool at Pro, or the open arm's pass is uninterpretable. The live handlers are then called at the free tier and must run (no `isError`).
+
 ## [0.9.10] - 2026-08-06
 
 ### Fixed

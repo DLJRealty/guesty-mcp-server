@@ -1,7 +1,7 @@
 {
   "name": "guesty-mcp-server",
-  "version": "0.9.11",
-  "description": "MCP server for Guesty property management — 43 registered tools (23 free read-only Guesty tools available today) + 7 addressable resource templates covering reservations, guests, messaging, pricing, revenue, tasks, webhooks, and IoT/property-health.",
+  "version": "0.10.0",
+  "description": "MCP server for Guesty property management — 43 registered tools, all free (42 Guesty tools + get_license_info), + 7 addressable resource templates covering reservations, guests, messaging, pricing, revenue, tasks, webhooks, and IoT/property-health.",
   "main": "src/server.js",
   "bin": {
     "guesty-mcp-server": "src/server.js",

@@ -1,46 +1,53 @@
 /**
- * Guesty MCP Server — License Key System (v2)
+ * Guesty MCP Server — License Key System (v3)
  *
- * PAID_TIERS_LIVE=false. Paid-tier prefix keys
- *   (gmcp_pro_*, gmcp_biz_*, gmcp_ent_*, test_pro/biz/ent) are recognized
- *   but tool access is REFUSED with PAID_TIERS_NOT_WIRED_MSG (defined below —
- *   do not restate its text here, or this comment goes stale the moment the
- *   copy changes). Free tier (23 read-only tools) is fully functional and
- *   unchanged. Closes the prefix-match self-mint exploit window for
- *   pre-launch OSS readers.
+ * ALL_TOOLS_FREE=true — Owner ruling 2026-09-02 (TG 8336, "Make them free for
+ *   now"). EVERY REGISTERED TOOL IS PERMITTED AT EVERY TIER, with or without a
+ *   key. The tier ledgers below (READ_ONLY_TOOLS / PRO_TOOLS / ENT_TOOLS /
+ *   LOCAL_TOOLS) are kept as NAMED LISTS so that the gate can be re-armed later
+ *   by flipping one constant — not because anything is withheld today. Nothing
+ *   in this module refuses a call while ALL_TOOLS_FREE is true; the refusal
+ *   copy further down is dormant and is exercised only through the pure
+ *   isToolAllowedAt() function in the test suite.
+ *
+ *   WHY A SWITCH AND NOT A DELETION: paid tiers were gated for ~4 months while
+ *   no billing existed, so 19 of 43 advertised tools returned isError to every
+ *   caller. That was worse than free. Opening them is a policy change, and a
+ *   policy should live in exactly one line that a test can flip both ways.
+ *
+ * PAID_TIERS_LIVE=false remains as the paid-key kill-switch: a paid-prefix key
+ *   (gmcp_pro_* / gmcp_biz_* / gmcp_ent_*, test_pro/biz/ent) is recognized and
+ *   reported as "paid_not_yet_wired" — FOR REPORTING ONLY. It does not change
+ *   access, because access is already total.
  *
  * 3-Layer Monetization Model (Danny-approved 2026-04-06):
- * - Layer 1: MCP Server = operations/data tool (FREE, lead gen)
+ * - Layer 1: MCP Server = operations/data tool (FREE, lead gen)  <-- this file
  * - Layer 2: Guesty Copilot = SaaS platform (PAID — not yet available)
  * - Layer 3: DLJ Managed AI = premium service (our real IP)
  *
- * FREE tier: Read-only operations data — reservations, listings, calendar,
- *   financials, tasks, guest lookup, pricing, occupancy, channels, photos.
- * PRO+ tier (not yet available): Guest communication — messaging, review
- *   responses, webhook creation, reservation writes, listing updates.
- *
- * Reads GUESTY_MCP_LICENSE_KEY from env.
- * No key or invalid key = free tier (operations data only).
- * Paid-prefix key with PAID_TIERS_LIVE=false = free tools + refusal message
- *   on any paid-tier tool call.
+ * Reads GUESTY_MCP_LICENSE_KEY from env. Optional. Absent, invalid, free or
+ * paid-prefix — every key resolves to the same, complete tool surface today.
  */
 
-// Paid-tier kill-switch.
-// Flip to true ONLY when the payment webhook + signed-key validation ship.
-// While false: paid-prefix keys are accepted as "paid_not_yet_wired" tier,
-// which has the same tool access as free + emits a refusal message on any
-// paid-tier tool call. Prevents prefix-match self-mint exploit.
+// THE POLICY. One line. Flip to false to re-arm tier gating (and re-run the
+// test suite: tests/test-enterprise.js asserts both arms of this switch).
+const ALL_TOOLS_FREE = true;
+
+// Paid-tier kill-switch. Flip to true ONLY when the payment webhook + signed-key
+// validation ship. While false: paid-prefix keys resolve to "paid_not_yet_wired".
+// With ALL_TOOLS_FREE=true this affects the tier LABEL only, never access.
 const PAID_TIERS_LIVE = false;
 
-// NOTE: PAID_TIERS_NOT_WIRED_MSG is declared BELOW FREE_TOOLS, not here.
-// It quotes the free-tool count, and that count is now DERIVED from
-// FREE_TOOLS.length rather than typed. `const` is not hoisted for use, so
-// building the string above the array would throw a TDZ ReferenceError at
-// module load. The ordering is load-bearing — data first, then the copy
-// derived from it. Do not move the message back above the array.
+// ---------------------------------------------------------------------------
+// THE LEDGERS. Four named lists whose union is the registered tool surface.
+// tests/test-remote-toolsync.mjs asserts that union against the real
+// server.tool() registrations in both directions, so a tool added to server.js
+// without being placed in a ledger fails the build instead of going off-census
+// (which is exactly how get_license_info became an uncounted 24th tool in 2026-08).
+// ---------------------------------------------------------------------------
 
-// Free tier: read-only operations and data tools
-const FREE_TOOLS = [
+// Read-only Guesty operations and data tools.
+const READ_ONLY_TOOLS = [
   // Reservations (read-only)
   "get_reservations",
   "search_reservations",
@@ -72,75 +79,31 @@ const FREE_TOOLS = [
   "get_reviews",
   // Webhooks (read-only)
   "get_webhooks",
-  // Server-local (read-only, makes no Guesty API call).
-  //
-  // ADDED 2026-08-06 (CTO), and this is a CORRECTION OF THE LEDGER, NOT A GRANT
-  // OF NEW ACCESS. get_license_info was registered in server.js with a PLAIN
-  // handler instead of gatedHandler, so isToolAllowed() was never consulted for
-  // it and every caller on earth could already call it. The effective free
-  // surface was 24; this list said 23; and 23 is the number we printed in the
-  // README, package.json, server.json, the website and the runtime refusal
-  // string. THE CODE WAS NOT OVER-RESTRICTING — OUR PUBLISHED NUMBER WAS
-  // UNDER-COUNTING WHAT WE ALREADY SHIP. Adding it here changes NO user's
-  // access (it stays callable for free, paid_not_yet_wired and every paid
-  // tier); it makes the gate's model of the surface match the surface, so
-  // every derived count self-corrects instead of being hand-patched.
-  "get_license_info",
 ];
 
-// TOOLS THAT ARE FREE BUT ARE NOT GUESTY CAPABILITY.
-//
-// 2026-08-06 (CTO). THE GATE LEDGER AND THE CUSTOMER-FACING CLAIM ARE TWO
-// DIFFERENT NUMBERS AND THEY MUST NOT BE COLLAPSED INTO ONE.
-//
-// FREE_TOOLS answers "what will isToolAllowed() permit at the free tier" — that
-// is 24, and every ACCESS decision must use it.
-//
-// A customer asking "how many tools do I get" is asking what this server can do
-// WITH THEIR GUESTY ACCOUNT. get_license_info makes no Guesty API call; it
-// reports our own licensing state back to the caller. Counting it in a
-// published figure would inflate the capability claim by one, using a tool that
-// does nothing for the customer's properties — the exact species of claim we
-// spent 2026-08-06 stripping out of the website and the registry. WE DO NOT GET
-// TO CORRECT AN HONESTY DEFECT BY COMMITTING A SMALLER ONE IN THE OPPOSITE
-// DIRECTION.
-//
-// So: GUESTY_FREE_TOOL_COUNT (23) is the PUBLISHED capability figure;
-// FREE_TOOLS.length (24) is the ACCESS figure. BOTH ARE DERIVED, NEITHER IS
-// TYPED. Adding a Guesty tool to FREE_TOOLS moves both. Adding another local
-// meta-tool moves only the access figure — which is the correct behaviour, and
-// is precisely what went wrong when get_license_info was added outside the gate.
-const LOCAL_TOOLS = ["get_license_info"];
-const GUESTY_FREE_TOOL_COUNT = FREE_TOOLS.filter(
-  (t) => !LOCAL_TOOLS.includes(t)
-).length;
+// Guest communication, writes and real-time events. Formerly the Pro tier.
+// get_conversations is read-only but sits here because it returns message content.
+const PRO_TOOLS = [
+  "get_conversations",
+  "send_guest_message",
+  "respond_to_review",
+  "create_webhook",
+  "delete_webhook",
+  "create_reservation",
+  "update_reservation",
+  "create_reservation_note",
+  "update_pricing",
+  "update_calendar",
+  "update_listing",
+  "update_photos",
+  "update_listing_pricing",
+  "create_expense",
+  "create_task",
+];
 
-// Verbatim refusal message — matches HN launch body and README callout.
-// Keep wording stable; HN/Marketing reference this exact string.
-//
-// REWRITTEN 2026-08-06 (v0.9.8), CEO-approved verbatim. THE DEFECT IN THE OLD
-// TEXT WAS NOT THAT IT WAS WRONG WHEN WRITTEN — IT WAS THAT IT CARRIED DATED
-// PROMISES ("v0.9.2", "v1.0 next week", "Stripe-backed") THAT DECAYED INTO A
-// LIE WHILE SITTING PERFECTLY STILL. Written 2026-05-21; by 2026-08-06 the
-// package was at 0.9.7 and "next week" was ~11 weeks stale, in front of
-// customers. This replacement names NO version, NO date, NO payment vendor
-// and NO key format, so it cannot go stale on its own. If you edit it, keep
-// that property — the shelf life of the copy is the feature, not the wording.
-//
-// 2026-08-06 (CTO): the tool count is now INTERPOLATED FROM FREE_TOOLS.length
-// rather than typed as "23". A hand-typed count is a promise to update it by
-// hand forever, and this one had already gone wrong — same defect class as the
-// serverInfo.version literal that sat frozen at 0.9.1 for eight releases.
-const PAID_TIERS_NOT_WIRED_MSG =
-  "Free tier is live and fully functional — " + GUESTY_FREE_TOOL_COUNT +
-  " read-only tools, no license " +
-  "key required and nothing to configure.\n\n" +
-  "Paid tiers (Pro, Business, Enterprise) are not yet available, so there is " +
-  "no key to enter yet.\n\n" +
-  "Availability will be announced in the release notes.";
-
-// Enterprise tier: IoT + property aggregator tools (4 total)
-// These ship in active validation per data-integrity gate; require Enterprise license.
+// IoT + property aggregator tools. Formerly the Enterprise tier. They read the
+// local IoT database fed by the optional webhook receiver; with no devices
+// reporting they return empty device lists / null signals, not errors.
 const ENT_TOOLS = [
   "get_readiness_score",
   "get_property_health",
@@ -148,36 +111,46 @@ const ENT_TOOLS = [
   "get_maintenance_alerts",
 ];
 
-// Total registered tool surface: 38 Guesty API tools + get_license_info (local,
-// makes no API call) + 1 IoT (get_readiness_score) + 3 Enterprise aggregators
-// (get_property_health, submit_checkout_photos, get_maintenance_alerts) = 43.
-// Established 2026-04-17 for the Enterprise Tier MVP merge (Owner msg 6406) and
-// RE-DERIVED BY EXERCISE 2026-08-06: 15 gatedHandler + 24 plain + 4 enterprise
-// registrations = 43, matching the length of a live tools/list response.
-// Hoisted to module scope 2026-08-06 — it was a local inside getTierInfo() while
-// gatedHandler carried its own hand-typed "43" in a customer-facing string. Two
-// copies of one constant is how they drift.
-const TOTAL_TOOLS = 43;
+// Server-local: makes no Guesty API call, reports this module's own state.
+// Counted in the registered surface, NOT in the Guesty-capability figure — a
+// customer asking "how many tools do I get" is asking what we do with THEIR
+// account, and inflating that by one with a meta-tool is the honesty defect we
+// removed on 2026-08-06. Do not collapse the two figures.
+const LOCAL_TOOLS = ["get_license_info"];
+
+// What isToolAllowed() permits at the free tier. DERIVED from the policy.
+const FREE_TOOLS = ALL_TOOLS_FREE
+  ? [...READ_ONLY_TOOLS, ...PRO_TOOLS, ...ENT_TOOLS, ...LOCAL_TOOLS]
+  : [...READ_ONLY_TOOLS, ...LOCAL_TOOLS];
+
+// Published capability figure: free tools that touch the customer's Guesty account.
+const GUESTY_FREE_TOOL_COUNT = FREE_TOOLS.filter(
+  (t) => !LOCAL_TOOLS.includes(t)
+).length;
+
+// Registered surface. DERIVED from the ledgers (was a hand-typed 43 until
+// 2026-09-02); the toolsync test checks it against a live registration census.
+const TOTAL_TOOLS =
+  READ_ONLY_TOOLS.length + PRO_TOOLS.length + ENT_TOOLS.length + LOCAL_TOOLS.length;
+
+// Shown to a caller who supplied a paid-prefix key and hit a refused tool.
+// UNREACHABLE while ALL_TOOLS_FREE is true (nothing is refused). Names no
+// version, no date, no vendor and no key format, so it cannot go stale on its
+// own — keep that property if you edit it. The count is interpolated, not typed.
+const PAID_TIERS_NOT_WIRED_MSG =
+  "Free tier is live and fully functional — " + GUESTY_FREE_TOOL_COUNT +
+  " Guesty tools, no license key required and nothing to configure.\n\n" +
+  "Paid tiers (Pro, Business, Enterprise) are not available, so there is " +
+  "no key to enter.\n\n" +
+  "Any change will be announced in the release notes.";
 
 // Business tier: operational/SLA features the binary advertises (consumed by getTierInfo).
-// No per-call tool gating — Business unlocks the same 39 base tools as Pro plus the
-// multi-account license terms and priority support promised by guestycopilot.com pricing.
 const BIZ_FEATURES = {
   multiAccountLicense: true,
   prioritySupport: true,
 };
 
-// PRO+ gated tools: guest communication, writes, and real-time events
-// send_guest_message, respond_to_review, create_webhook, delete_webhook,
-// create_reservation, update_reservation, create_reservation_note,
-// update_pricing, update_calendar, update_listing, update_photos,
-// update_listing_pricing, create_expense, create_task,
-// get_conversations (contains message content)
-
-// Simple key-to-tier mapping
-// v0.9.2: when PAID_TIERS_LIVE=false, any paid-prefix key resolves to
-//   "paid_not_yet_wired" — free tool access + refusal on paid tool calls.
-// Planned: payment webhook + signed-key DB lookup replaces prefix match.
+// Key-to-tier mapping. Label only while ALL_TOOLS_FREE is true.
 function resolveTier(licenseKey) {
   if (!licenseKey) return "free";
   const key = licenseKey.trim();
@@ -188,7 +161,6 @@ function resolveTier(licenseKey) {
     key === "test_pro" ||
     key === "test_biz" ||
     key === "test_ent";
-  // v0.9.2 kill-switch: paid keys recognized but refused.
   if (isPaidPrefix && !PAID_TIERS_LIVE) return "paid_not_yet_wired";
   if (key.startsWith("gmcp_ent_")) return "enterprise";
   if (key.startsWith("gmcp_biz_")) return "business";
@@ -203,111 +175,91 @@ function getTier() {
   return resolveTier(process.env.GUESTY_MCP_LICENSE_KEY);
 }
 
-function isToolAllowed(toolName) {
-  const tier = getTier();
-  // v0.9.2: "paid_not_yet_wired" has same tool surface as free.
+// PURE access decision. Exported so the test suite can exercise BOTH arms of
+// the policy switch without editing this file — a gate whose closed arm has
+// never been shown to refuse is decoration, not a gate.
+function isToolAllowedAt(tier, toolName, allToolsFree = ALL_TOOLS_FREE) {
+  if (allToolsFree) return true;
   if (tier === "free" || tier === "paid_not_yet_wired") {
-    return FREE_TOOLS.includes(toolName);
+    return READ_ONLY_TOOLS.includes(toolName) || LOCAL_TOOLS.includes(toolName);
   }
-  // Enterprise-tier tools require enterprise license
-  if (ENT_TOOLS.includes(toolName)) {
-    return tier === "enterprise";
-  }
-  // All other paid tools (Pro+) allowed for pro / business / enterprise
+  if (ENT_TOOLS.includes(toolName)) return tier === "enterprise";
   return true;
+}
+
+function isToolAllowed(toolName) {
+  return isToolAllowedAt(getTier(), toolName);
 }
 
 function getTierInfo() {
   const tier = getTier();
-  const totalTools = TOTAL_TOOLS;  // see the module-scope declaration for the breakdown
+  const totalTools = TOTAL_TOOLS;
   const entToolCount = ENT_TOOLS.length;
-  const baseToolCount = totalTools - entToolCount;  // 39
-  // v0.9.2: paid_not_yet_wired gets same accessible surface as free.
-  const accessibleCount =
-    tier === "free" || tier === "paid_not_yet_wired" ? FREE_TOOLS.length :
-    tier === "enterprise" ? totalTools :
-    baseToolCount;  // pro / business
+  const baseToolCount = totalTools - entToolCount;
+  const accessibleCount = ALL_TOOLS_FREE
+    ? totalTools
+    : tier === "free" || tier === "paid_not_yet_wired" ? FREE_TOOLS.length
+    : tier === "enterprise" ? totalTools
+    : baseToolCount;
   return {
     tier,
     hasKey: !!process.env.GUESTY_MCP_LICENSE_KEY,
-    // 2026-08-06 (CTO): freeToolCount is the PUBLISHED capability figure (23) —
-    // what this server can do WITH THE CUSTOMER'S GUESTY ACCOUNT. It excludes
-    // get_license_info, which makes no Guesty API call and reports our own
-    // licensing state back to the caller. accessibleToolCount stays the GATE
-    // figure (24 at free) — what isToolAllowed() will actually permit.
-    // The two reconcile visibly: freeToolCount + localToolCount === 24.
-    // Do not collapse these into one number; that collapse is exactly how the
-    // off-ledger 24th tool made every published count wrong by one.
+    allToolsFree: ALL_TOOLS_FREE,
+    licenseRequired: !ALL_TOOLS_FREE,
+    // freeToolCount = PUBLISHED capability figure (Guesty tools callable free).
+    // accessibleToolCount = GATE figure (what isToolAllowed permits). They
+    // reconcile as freeToolCount + localToolCount === accessibleToolCount.
     freeToolCount: GUESTY_FREE_TOOL_COUNT,
     localToolCount: LOCAL_TOOLS.length,
     baseToolCount,
     entToolCount,
     accessibleToolCount: accessibleCount,
     gatedToolCount: totalTools - accessibleCount,
-    unlocked: tier !== "free" && tier !== "paid_not_yet_wired",
+    unlocked: ALL_TOOLS_FREE || (tier !== "free" && tier !== "paid_not_yet_wired"),
     paidTiersLive: PAID_TIERS_LIVE,
     paidKeyDetected: tier === "paid_not_yet_wired",
     bizFeatures: tier === "business" || tier === "enterprise" ? BIZ_FEATURES : null,
   };
 }
 
+// Refusal copy for a tool the current tier may not call. DORMANT while
+// ALL_TOOLS_FREE is true; exercised via the pure function in tests.
+function refusalMessage(toolName, tier) {
+  if (tier === "paid_not_yet_wired") return PAID_TIERS_NOT_WIRED_MSG;
+  // ENT tools first: at ANY non-enterprise tier the remedy is Enterprise, so the
+  // Pro copy below would name the wrong tier for them (caught by the flip
+  // control in tests/test-enterprise.js on 2026-09-02 before it shipped).
+  if (ENT_TOOLS.includes(toolName)) {
+    const included = tier === "free"
+      ? READ_ONLY_TOOLS.length
+      : TOTAL_TOOLS - ENT_TOOLS.length - LOCAL_TOOLS.length;
+    return "This tool (" + toolName + ") requires an Enterprise license. " +
+      "Your current tier (" + tier + ") includes " + included + " Guesty tools. " +
+      "Enterprise adds IoT readiness, property health, checkout photo intake, " +
+      "and maintenance alerts (" + ENT_TOOLS.length + " additional tools). " +
+      "Talk to us at https://guestycopilot.com/pricing";
+  }
+  if (tier === "free") {
+    // The upgrade instruction is CONDITIONAL ON THE SWITCH, not on copy
+    // discipline: telling a caller to set a key the kill-switch will refuse is
+    // the defect this branch shipped with for months (see 0.9.8 changelog).
+    return "This tool (" + toolName + ") requires a Pro or higher license. " +
+      "Free tier includes " + GUESTY_FREE_TOOL_COUNT + " operations and data tools. " +
+      "Guest messaging, review responses, and write operations require Pro+. " +
+      (PAID_TIERS_LIVE
+        ? "Set GUESTY_MCP_LICENSE_KEY env var to unlock all " + TOTAL_TOOLS + " tools. " +
+          "Upgrade at https://guestycopilot.com/pricing"
+        : "Paid tiers are not available, so there is no key to enter. " +
+          "Any change will be announced in the release notes.");
+  }
+  return "This tool (" + toolName + ") is not available in your current tier (" + tier + ").";
+}
+
 function gatedHandler(toolName, handler) {
   return async (params) => {
     if (!isToolAllowed(toolName)) {
-      const tier = getTier();
-      let msg;
-      // v0.9.2: paid-key supplied but tiers not wired yet — refusal-with-context.
-      if (tier === "paid_not_yet_wired") {
-        msg = PAID_TIERS_NOT_WIRED_MSG;
-      } else if (tier === "free") {
-        // 2026-08-06 (CTO): THE OLD TEXT ENDED "Set GUESTY_MCP_LICENSE_KEY env
-        // var to unlock all 43 tools." THAT INSTRUCTION CANNOT SUCCEED WHILE
-        // PAID_TIERS_LIVE IS false. Any key with a paid prefix resolves to
-        // "paid_not_yet_wired" in resolveTier() BEFORE the pro/business/
-        // enterprise branches are reached, so the user who follows the
-        // instruction lands on the not-wired refusal instead of the tools.
-        // We told every free caller to go do a thing we had already made
-        // impossible.
-        //
-        // THIS IS THE SIBLING #372 MISSED. That ticket fixed exactly this
-        // defect in the ENTERPRISE branch of THIS function, ten lines below,
-        // and shipped without sweeping the other arms of its own if/else.
-        // Worse, the branch it fixed is UNREACHABLE today (tier can only be
-        // "free" or "paid_not_yet_wired" while the kill-switch is off), while
-        // the branch it skipped is the ONLY one a real customer can reach.
-        // The fix landed on the dead arm and the live arm kept lying.
-        //
-        // The upgrade line is now CONDITIONAL ON THE SWITCH, not on copy
-        // discipline, so it cannot go stale in either direction: when paid
-        // tiers actually ship, flipping PAID_TIERS_LIVE turns the instruction
-        // back on by itself.
-        msg = "This tool (" + toolName + ") requires a Pro or higher license. " +
-              "Free tier includes " + GUESTY_FREE_TOOL_COUNT + " operations and data tools. " +
-              "Guest messaging, review responses, and write operations require Pro+. " +
-              (PAID_TIERS_LIVE
-                ? "Set GUESTY_MCP_LICENSE_KEY env var to unlock all " + TOTAL_TOOLS + " tools. " +
-                  "Upgrade at https://guestycopilot.com/pricing"
-                : "Paid tiers are not yet available, so there is no key to enter yet. " +
-                  "Availability will be announced in the release notes.");
-      } else if (ENT_TOOLS.includes(toolName)) {
-        // 2026-08-06 (CTO): was hand-typed "the 39 base Guesty tools" — wrong
-        // twice over. 39 is the BASE ACCESS count (43 registered − 4 Enterprise),
-        // and it includes get_license_info, which is not a Guesty tool at all.
-        // Same off-by-one, same cause, as the 23-vs-24 free-tier defect: one
-        // number was doing the work of two different ledgers. Now derived, and
-        // the Guesty figure excludes the local tool.
-        msg = "This tool (" + toolName + ") requires an Enterprise license. " +
-              "Your current tier (" + tier + ") includes " +
-              (TOTAL_TOOLS - ENT_TOOLS.length - LOCAL_TOOLS.length) +
-              " Guesty tools. " +
-              "Enterprise adds IoT readiness, property health, checkout photo intake, " +
-              "and maintenance alerts (4 additional tools). " +
-              "Talk to us at https://guestycopilot.com/pricing";
-      } else {
-        msg = "This tool (" + toolName + ") is not available in your current tier (" + tier + ").";
-      }
       return {
-        content: [{ type: "text", text: msg }],
+        content: [{ type: "text", text: refusalMessage(toolName, getTier()) }],
         isError: true,
       };
     }
@@ -318,12 +270,18 @@ function gatedHandler(toolName, handler) {
 export {
   getTier,
   isToolAllowed,
+  isToolAllowedAt,
   getTierInfo,
   gatedHandler,
+  refusalMessage,
+  ALL_TOOLS_FREE,
+  READ_ONLY_TOOLS,
+  PRO_TOOLS,
   FREE_TOOLS,
   GUESTY_FREE_TOOL_COUNT,
   LOCAL_TOOLS,
   ENT_TOOLS,
+  TOTAL_TOOLS,
   BIZ_FEATURES,
   PAID_TIERS_LIVE,
   PAID_TIERS_NOT_WIRED_MSG,

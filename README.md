@@ -5,19 +5,19 @@
 
 The first MCP (Model Context Protocol) server for [Guesty](https://guesty.com) property management. Connect any MCP-compatible AI client (Claude, ChatGPT, Copilot, Cline) to your Guesty account — manage reservations, communicate with guests, track finances, update pricing.
 
-**Live now:** 23 free read-only tools — reservations, listings, guests, calendars, financial reports, operations, reviews, and webhook reads. The full 43-tool surface (write/destructive ops + webhook management) is planned behind a paid tier; availability will be announced in the release notes.
+**Live now:** all 43 tools, free — reservations, listings, guests, calendars, guest messaging, financial reports, pricing and listing writes, operations, reviews, webhooks, and IoT/property-health. No license key, no paid tier.
 
 **Why MCP:** Guesty is one of the larger PMS platforms in the short-term-rental space and no MCP integration existed. Every major PMS will need one — we built the first.
 
-**Built in production** on 10 of our own short-term rentals. Node.js + MCP SDK + Express, MIT licensed. Things we learned: Guesty's `/reservations` endpoint only returns future data (we use the calendar endpoint for historical), and the SSE transport doesn't run on Vercel serverless (expected). **The first and only MCP server for Guesty — 23 free read-only tools live now.**
+**Built in production** on 10 of our own short-term rentals. Node.js + MCP SDK + Express, MIT licensed. Things we learned: Guesty's `/reservations` endpoint only returns future data (we use the calendar endpoint for historical), and the SSE transport doesn't run on Vercel serverless (expected). **The first and only MCP server for Guesty — all 43 tools free.**
 
-Full tool surface: **43 tools registered** — 23 free read-only Guesty tools live now, plus `get_license_info`, which reports this server's own licensing state and makes no Guesty API call. A **Pro** tier would add **15 gated tools**: 14 write/guest-messaging operations plus `get_conversations`, which is read-only but is gated because it returns message content. An **Enterprise IoT** add-on (`get_readiness_score`, `get_property_health`, `submit_checkout_photos`, `get_maintenance_alerts`) sits above that. **Paid tiers are not yet available and no release date is set.**
+Full tool surface: **43 tools registered, all free** — 42 Guesty tools (23 read-only, 15 write/guest-messaging including `get_conversations`, and 4 IoT/property-health) plus `get_license_info`, which reports this server's own licensing state and makes no Guesty API call. **There are no paid tiers.** `GUESTY_MCP_LICENSE_KEY` is optional and does not change what you can call.
 
 > **Want AI to handle your guest messages 24/7?** [Guesty Copilot](https://guestycopilot.com) -- AI guest management for Guesty hosts, built on this MCP server. Now in beta.
 
 > **Stay updated:** [Sign up for release notes and new tool announcements](https://guestycopilot.com#signup)
 
-> **Paid tiers are not yet available.** 23 free read-only tools are live now: reservations, listings, guests, calendars, financial reports, operations, reviews, and webhook reads. There is no license key to buy or enter yet, and the free tier needs none. Paid-tier license keys are recognized but refused with a message saying paid tiers are not yet available — set or omit `GUESTY_MCP_LICENSE_KEY` and you get the free tier either way.
+> **Everything is free.** All 43 tools work with no license key. Paid-prefix keys are still recognized (they show up in `get_license_info`) but are not required and unlock nothing extra — there is nothing extra to unlock. Set or omit `GUESTY_MCP_LICENSE_KEY`; access is the same either way.
 
 ## Quick Start
 
@@ -116,11 +116,11 @@ Or add to your Claude Code settings (`~/.claude/settings.json`):
 ### Server & Licensing
 | Tool | Description |
 |------|-------------|
-| `get_license_info` | Report this MCP server's own licensing state — active tier, which tools are permitted, and whether paid tiers are available. Makes no Guesty API call. |
+| `get_license_info` | Report this MCP server's own licensing state — every tool is currently free; lists the tool ledger and whether a key was detected. Makes no Guesty API call. |
 
-This tool is available on the free tier. It is counted in the 43 registered tools but **not** in the "23 free read-only Guesty tools" figure, because it reports our licensing state rather than doing anything with your Guesty account: 23 Guesty tools + this one = the 24 tools the free tier can call.
+It is counted in the 43 registered tools but **not** in the "42 Guesty tools" figure, because it reports our licensing state rather than doing anything with your Guesty account: 42 Guesty tools + this one = 43.
 
-### Enterprise Tier
+### IoT & Property Health
 | Tool | Description |
 |------|-------------|
 | `get_readiness_score` | Composite turnover-readiness score for a property from cleaning, maintenance, and IoT signals |
@@ -128,7 +128,7 @@ This tool is available on the free tier. It is counted in the 43 registered tool
 | `submit_checkout_photos` | Accept post-checkout photo uploads and log them to the property's maintenance/cleaning record |
 | `get_maintenance_alerts` | List or filter open maintenance alerts for a property or portfolio |
 
-These four tools are gated to the Enterprise tier. Paid tiers are not yet available, so they cannot be unlocked today — they are documented here for completeness. Availability will be announced in the release notes.
+These four tools are free like everything else. They read the local IoT database (`IOT_DB_PATH`) that the optional webhook receiver (`src/webhook/iot-receiver-server.js`) populates. With no devices reporting they return empty device and alert lists, a low readiness score that names each missing signal, and null IoT fields in the health snapshot — not errors — and the Guesty-side fields still fill in.
 
 ## Use Cases
 
@@ -150,7 +150,7 @@ These four tools are gated to the Enterprise tier. Paid tiers are not yet availa
 |----------|---------|---------|
 | `GUESTY_CLIENT_ID` | — | OAuth2 client id (required) |
 | `GUESTY_CLIENT_SECRET` | — | OAuth2 client secret (required) |
-| `IOT_WEBHOOK_PORT` | `3100` | Port for the Enterprise-tier IoT webhook receiver stub (`src/webhook/iot-receiver-server.js`). Local/reverse-proxy only — do not expose publicly. Production requires a reverse proxy that terminates TLS and enforces real HMAC against `IOT_WEBHOOK_SECRET`. |
+| `IOT_WEBHOOK_PORT` | `3100` | Port for the IoT webhook receiver stub (`src/webhook/iot-receiver-server.js`). Local/reverse-proxy only — do not expose publicly. Production requires a reverse proxy that terminates TLS and enforces real HMAC against `IOT_WEBHOOK_SECRET`. |
 
 ## API Reference
 

@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.DLJRealty/guesty",
   "title": "Guesty MCP Server",
-  "description": "Guesty property-management MCP. Read-only: reservations, listings, calendar, guests, revenue.",
-  "version": "0.9.11",
+  "description": "Guesty MCP server. 43 tools, all free: reservations, listings, guests, messaging, pricing, revenue.",
+  "version": "0.10.0",
   "websiteUrl": "https://guestycopilot.com",
   "repository": {
     "url": "https://github.com/DLJRealty/guesty-mcp-server",
@@ -13,7 +13,7 @@
     {
       "registryType": "npm",
       "identifier": "guesty-mcp-server",
-      "version": "0.9.11",
+      "version": "0.10.0",
       "transport": {
         "type": "stdio"
       },
@@ -33,7 +33,7 @@
           "name": "GUESTY_CLIENT_SECRET"
         },
         {
-          "description": "License key for Pro/Business/Enterprise features (optional for free tier)",
+          "description": "Optional. All tools are currently free; a key is recognized but does not change access.",
           "isRequired": false,
           "format": "string",
           "isSecret": true,

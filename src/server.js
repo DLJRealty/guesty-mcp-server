@@ -1587,13 +1587,13 @@ server.tool(
 // tool outside the census, and the census is what we publish.
 server.tool(
   "get_license_info",
-  "Show current license tier, available tools, and upgrade information.",
+  "Report this server's licensing state. Every registered tool is currently free; lists the tool ledger and whether a key was detected. Makes no Guesty API call.",
   {},
   { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   gatedHandler("get_license_info", async () => {
     const info = getTierInfo();
     info.freeTools = FREE_TOOLS;
-    info.upgradeUrl = "https://guestycopilot.com/pricing";
+    info.website = "https://guestycopilot.com";
     return { content: [{ type: "text", text: JSON.stringify(info, null, 2) }] };
   })
 );

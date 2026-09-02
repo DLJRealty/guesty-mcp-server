@@ -137,17 +137,54 @@ if (!m) fail("SERVER_INFO.description no longer states a registered-tool count -
 else if (Number(m[1]) !== realSet.size) fail(`description says "${m[1]} registered tools", real count is ${realSet.size}`);
 else ok(`description registered-tool count ${m[1]} matches`);
 
-const { GUESTY_FREE_TOOL_COUNT, FREE_TOOLS } = await import("../src/license.js");
-const mf = /(\d+)\s+free read-only Guesty tools/.exec(SERVER_INFO.description || "");
-if (!mf) fail("SERVER_INFO.description no longer states a free-tool count -- this assertion has gone blind, fix or delete it");
-else if (Number(mf[1]) !== GUESTY_FREE_TOOL_COUNT) fail(`description says "${mf[1]} free read-only Guesty tools", GUESTY_FREE_TOOL_COUNT is ${GUESTY_FREE_TOOL_COUNT}`);
-else ok(`description free-tool count ${mf[1]} matches GUESTY_FREE_TOOL_COUNT`);
+const LIC = await import("../src/license.js");
+const { GUESTY_FREE_TOOL_COUNT, FREE_TOOLS, ALL_TOOLS_FREE, TOTAL_TOOLS,
+        READ_ONLY_TOOLS, PRO_TOOLS, ENT_TOOLS, LOCAL_TOOLS } = LIC;
 
-// The published figure must never silently become the access figure. If someone
-// collapses the two ledgers back into one, this is the line that says so.
+// 2026-09-02 (CTO): all tools free (Owner TG 8336). The description now states
+// "all free (N Guesty tools" and N must equal GUESTY_FREE_TOOL_COUNT. If the
+// policy is ever flipped back, this regex goes blind ON PURPOSE and fails loudly.
+const descFor = (label, text) => {
+  const mf = ALL_TOOLS_FREE
+    ? /all free \((\d+) Guesty tools/.exec(text || "")
+    : /(\d+)\s+free read-only Guesty tools/.exec(text || "");
+  if (!mf) fail(`${label} no longer states the free-tool figure in the form the policy (ALL_TOOLS_FREE=${ALL_TOOLS_FREE}) requires -- this assertion has gone blind, fix or delete it`);
+  else if (Number(mf[1]) !== GUESTY_FREE_TOOL_COUNT) fail(`${label} says "${mf[1]}" free Guesty tools, GUESTY_FREE_TOOL_COUNT is ${GUESTY_FREE_TOOL_COUNT}`);
+  else ok(`${label} free-tool count ${mf[1]} matches GUESTY_FREE_TOOL_COUNT`);
+  const mr = /(\d+)\s+registered tools/.exec(text || "");
+  if (!mr) fail(`${label} no longer states a registered-tool count -- gone blind`);
+  else if (Number(mr[1]) !== realSet.size) fail(`${label} says "${mr[1]} registered tools", real count is ${realSet.size}`);
+  else ok(`${label} registered-tool count ${mr[1]} matches`);
+};
+descFor("SERVER_INFO.description", SERVER_INFO.description);
+descFor("package.json description", PKG.description);
+
+// The published figure must never silently become the access figure.
 if (GUESTY_FREE_TOOL_COUNT >= FREE_TOOLS.length) {
   fail(`published free count ${GUESTY_FREE_TOOL_COUNT} is not below the gate's access count ${FREE_TOOLS.length} -- the two ledgers have been collapsed`);
 } else ok(`ledgers still distinct: published ${GUESTY_FREE_TOOL_COUNT} < access ${FREE_TOOLS.length}`);
+
+// 4b. THE LEDGER CENSUS. license.js's four named lists must union to EXACTLY the
+//     set of real server.tool() registrations. A tool registered without a ledger
+//     entry (how get_license_info went off-census in 2026-08) fails here.
+const ledger = [...READ_ONLY_TOOLS, ...PRO_TOOLS, ...ENT_TOOLS, ...LOCAL_TOOLS];
+const ledgerSet = new Set(ledger);
+if (ledger.length !== ledgerSet.size) fail(`ledgers contain ${ledger.length - ledgerSet.size} duplicate name(s)`);
+{
+  const mutated = new Set(ledgerSet); mutated.add("__phantom_ledger_tool__"); mutated.delete(real[0]);
+  if (diff(mutated, realSet).length !== 1 || diff(realSet, mutated).length !== 1)
+    fail("CONTROL: ledger comparator did not detect an injected divergence -- its PASS is uninterpretable");
+  else ok("control: ledger comparator detects an injected divergence in both directions");
+}
+const unledgered = diff(realSet, ledgerSet), ghost = diff(ledgerSet, realSet);
+if (unledgered.length) fail(`${unledgered.length} registered tool(s) missing from license.js ledgers: ${unledgered.join(", ")}`);
+if (ghost.length) fail(`${ghost.length} ledger name(s) not registered anywhere: ${ghost.join(", ")}`);
+if (!unledgered.length && !ghost.length) ok(`ledger union == registration census (${ledgerSet.size})`);
+if (TOTAL_TOOLS !== realSet.size) fail(`TOTAL_TOOLS ${TOTAL_TOOLS} != registered ${realSet.size}`);
+else ok(`TOTAL_TOOLS ${TOTAL_TOOLS} == registered`);
+if (ALL_TOOLS_FREE && FREE_TOOLS.length !== realSet.size)
+  fail(`ALL_TOOLS_FREE but FREE_TOOLS has ${FREE_TOOLS.length} of ${realSet.size} registered tools`);
+else if (ALL_TOOLS_FREE) ok(`ALL_TOOLS_FREE: gate permits all ${FREE_TOOLS.length} registered tools`);
 
 // ---------------------------------------------------------------------------
 // 5. server.json — the MCP registry manifest. Two constraints the registry
