@@ -1,6 +1,6 @@
 {
   "name": "guesty-mcp-server",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "description": "MCP server for Guesty property management — 43 registered tools, all free (42 Guesty tools + get_license_info), + 7 addressable resource templates covering reservations, guests, messaging, pricing, revenue, tasks, webhooks, and IoT/property-health.",
   "main": "src/server.js",
   "bin": {
@@ -11,7 +11,7 @@
   "scripts": {
     "start": "node src/server.js",
     "prepack": "node -e \"const fs=require('fs');const ok=['README.md','LICENSE'];const bad=fs.readdirSync('.').filter(f=>/^(README|LICEN[SC]E)/.test(f)&&!ok.includes(f));if(bad.length){console.error('PREPACK '+'ABORT: npm force-includes root README/LICENSE-prefixed files regardless of .npmignore. These WOULD be published: '+bad.join(', ')+'. Move them to _backups/.');process.exit(1)}\"",
-    "test": "rc=0; for t in tests/test-enterprise.js tests/test-iot.js tests/test-remote-toolsync.mjs; do echo \"--- $t\"; node \"$t\" || rc=1; done; exit $rc"
+    "test": "rc=0; for t in tests/test-shapes.mjs tests/test-enterprise.js tests/test-iot.js tests/test-remote-toolsync.mjs; do echo \"--- $t\"; node \"$t\" || rc=1; done; exit $rc"
   },
   "keywords": [
     "mcp",

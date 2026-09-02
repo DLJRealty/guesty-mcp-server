@@ -2,6 +2,15 @@
 
 All notable changes to the Guesty MCP Server will be documented in this file.
 
+## [0.10.1] - 2026-09-02
+
+### Fixed
+- **`get_reviews` returned `[]` for every caller since launch (issue #2).** Guesty's `/v1/reviews` responds `{ data: [...], limit, skip }` with the review text and ratings under `rawReview` (channel-native names: `public_review`, `overall_rating`, `private_feedback`, `reviewer_role`, `category_ratings*`). The tool read `data.results` and `r.rating` / `r.comment`, none of which exist. Measured live on 2026-09-02: 100 rows on a 10-listing account, `listingId` filter honoured server-side, bogus `listingId` returns 0. The reporter's multi-unit hypothesis was a red herring — the bug was universal. Response now returns `returned`, `limit`, `skip` and rows with `rating`, `comment`, `privateFeedback`, `categoryRatings`, `channel`, `reviewerRole`, `listingId`, `reservationId`, `guestId`, `hidden`, `submittedAt`, `date`.
+- **`get_calendar_blocks` now reports WHY a day is blocked (issue #4).** Each blocked day carries `blockTypes` (Guesty's true `blocks` flags — `m` manual, `o` owner, `b` booking, `r` reserved, plus the remaining Guesty flags passed through under their own keys), a human `blockReason`, `reservationId`, and summarised `blockRefs` (type, dates, reservation code, source). A `blockTypeLegend` is included in every response so an agent never has to guess a key.
+
+### Tests
+- `tests/test-shapes.mjs` exercises both mappers against the live-measured payloads, including a control that shows the pre-fix field reads are `undefined` on a real review row.
+
 ## [0.10.0] - 2026-09-02
 
 ### Changed

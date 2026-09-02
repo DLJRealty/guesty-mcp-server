@@ -3,7 +3,7 @@
   "name": "io.github.DLJRealty/guesty",
   "title": "Guesty MCP Server",
   "description": "Guesty MCP server. 43 tools, all free: reservations, listings, guests, messaging, pricing, revenue.",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "websiteUrl": "https://guestycopilot.com",
   "repository": {
     "url": "https://github.com/DLJRealty/guesty-mcp-server",
@@ -13,7 +13,7 @@
     {
       "registryType": "npm",
       "identifier": "guesty-mcp-server",
-      "version": "0.10.0",
+      "version": "0.10.1",
       "transport": {
         "type": "stdio"
       },

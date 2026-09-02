@@ -3,6 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { getTier, getTierInfo, gatedHandler, FREE_TOOLS } from './license.js';
+import { extractReviewRows, mapReviewRow, mapBlockedDay, BLOCK_TYPE_LEGEND } from './shapes.js';
 import { registerIoTTools } from './iot-tools.js';
 import { registerEnterpriseTools } from './enterprise-tools.js';
 import { registerResources } from './resources.js';
@@ -487,19 +488,20 @@ server.tool(
     if (params.listingId) queryParams.listingId = params.listingId;
 
     const data = await guestyGet("/reviews", queryParams);
-    const reviews = (data.results || []).map((r) => ({
-      id: r._id,
-      listing: r.listing?.title || "Unknown",
-      guestName: r.guest?.fullName || "Unknown",
-      rating: r.rating,
-      comment: r.comment?.slice(0, 300),
-      response: r.response?.slice(0, 200),
-      channel: r.source,
-      date: r.createdAt?.slice(0, 10),
-    }));
+    // 2026-09-02 (issue #2): /v1/reviews returns { data: [...] } with the text
+    // and ratings under rawReview. The previous `data.results` read returned []
+    // for every caller since launch. Shape mappers live in src/shapes.js and are
+    // tested against the live-measured payload in tests/test-shapes.mjs.
+    const rows = extractReviewRows(data);
+    const reviews = rows.map(mapReviewRow);
 
     return {
-      content: [{ type: "text", text: JSON.stringify({ total: data.count, reviews }, null, 2) }],
+      content: [{ type: "text", text: JSON.stringify({
+        returned: reviews.length,
+        limit: data?.limit ?? params.limit ?? null,
+        skip: data?.skip ?? 0,
+        reviews,
+      }, null, 2) }],
     };
   }
 );
@@ -844,16 +846,19 @@ server.tool(
       to: params.to,
     });
 
+    // 2026-09-02 (issue #4): surface Guesty's per-day `blocks` flags (m/o/b/r
+    // and the rest, passed through) and `blockRefs` instead of a bare status.
     const blockedDays = normalizeCalendarDays(data, "get_calendar_blocks")
       .filter((d) => d.status !== "available")
-      .map((d) => ({
-        date: d.date,
-        blockReason: d.blockReason || d.note || "unknown",
-        status: d.status,
-      }));
+      .map(mapBlockedDay);
 
     return {
-      content: [{ type: "text", text: JSON.stringify({ listing: params.listingId, blockedCount: blockedDays.length, blockedDays }, null, 2) }],
+      content: [{ type: "text", text: JSON.stringify({
+        listing: params.listingId,
+        blockedCount: blockedDays.length,
+        blockTypeLegend: BLOCK_TYPE_LEGEND,
+        blockedDays,
+      }, null, 2) }],
     };
   }
 );
